@@ -106,7 +106,7 @@ export default function Simulator() {
           <label className="field"><span>Population preset</span><select className="input" value={preset} onChange={(e) => setPreset(e.target.value)}>{(populations.length ? populations : Object.entries(presets).map(([id, v]) => ({ id, name: v.label, synthetic: true }))).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <p className="helper">{presets[preset]?.description || 'Synthetic population preset. Select the Chennai option to use its observed Census 2011 population anchor.'}</p>
           {chennaiAnchor && <div className="policy-note"><b>OBSERVED DATA · Chennai Census 2011</b><span>{chennaiAnchor.observed_population.toLocaleString()} people observed; this {chennaiAnchor.synthetic_sample_size.toLocaleString()}-agent sample represents {Math.round(chennaiAnchor.people_per_synthetic_agent).toLocaleString()} people per agent.</span><span>Trust, stress, compliance and resource access remain synthetic assumptions.</span></div>}
-          <div className="policy-note"><b>Experiment population</b><span>Every PolicyForge experiment runs with a fixed 10,000 synthetic agents.</span></div>
+          <div className="policy-note"><b>Experiment population</b><span>Every PolicyForge experiment uses 10,000 synthetic agents.</span></div>
           <label className="field"><span>Rounds <b>{rounds}</b></span><input className="range" type="range" min="1" max="100" value={rounds} onChange={(e) => setRounds(Number(e.target.value))}/></label>
         </div>
         <div className="label mt-8">02 · Policy shock</div><h2 className="section-title">What changes?</h2>
