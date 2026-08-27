@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, ChennaiAnchor, Policy, Population, SimulationConfig, SimulationResult } from '@/lib/api';
+import { api, ChennaiAnchor, Policy, PolicySelection, Population, SimulationConfig, SimulationResult } from '@/lib/api';
 
 const presets: Record<string, { label: string; description: string }> = {
   balanced: { label: 'Balanced City', description: 'A mixed synthetic population with moderate baseline inequality.' },
@@ -32,6 +32,8 @@ export default function Simulator() {
   const [rounds, setRounds] = useState(20);
   const [seed, setSeed] = useState(42);
   const [parameter, setParameter] = useState(0.25);
+  const [bundle, setBundle] = useState<PolicySelection[]>([]);
+  const [targetWards, setTargetWards] = useState<string[]>([]);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [simulationId, setSimulationId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,9 +52,13 @@ export default function Simulator() {
         const shared = JSON.parse(decodeURIComponent(escape(window.atob(token)))) as SimulationConfig;
         setPolicy(shared.policy_id); setPreset(shared.population.preset); setSize(shared.population.size); setRounds(shared.rounds); setSeed(shared.seed);
         const value = Object.values(shared.policy_parameters)[0]; if (typeof value === 'number') setParameter(value);
+        if (shared.policy_bundle?.length) setBundle(shared.policy_bundle.filter((item) => item.policy_id !== shared.policy_id));
+        if (shared.target_wards?.length) setTargetWards(shared.target_wards);
         return;
       } catch { setError('Could not read the AI policy configuration.'); }
     }
+    const requestedWard = searchParams.get('ward');
+    if (requestedWard) { setPreset('chennai_census_2011'); setTargetWards([requestedWard]); }
     const scenario = searchParams.get('scenario');
     const presetConfig = scenario ? scenarioDefaults[scenario] : undefined;
     if (!presetConfig) return;
@@ -81,7 +87,10 @@ export default function Simulator() {
     if (typeof value === 'number') setParameter(value);
   }, [selectedPolicy, parameterName]);
 
-  const config: SimulationConfig = { population: { preset, size, neighborhoods: 8 }, policy_id: policy, policy_parameters: { [parameterName]: parameter }, rounds, seed };
+  const policyBundle = bundle.length ? [{ policy_id: policy, policy_parameters: { [parameterName]: parameter } }, ...bundle] : [];
+  const config: SimulationConfig = { population: { preset, size, neighborhoods: 8 }, policy_id: policy, policy_parameters: { [parameterName]: parameter }, policy_bundle: policyBundle, target_wards: targetWards, rounds, seed };
+  function addPolicyToBundle(policyId: string) { const selected = policies.find((item) => item.id === policyId); if (!selected || policyId === policy || bundle.some((item) => item.policy_id === policyId)) return; setBundle((current) => [...current, { policy_id: policyId, policy_parameters: { ...selected.parameters } }].slice(0, 1)); }
+  function updateBundleParameter(policyId: string, name: string, value: number) { setBundle((current) => current.map((item) => item.policy_id === policyId ? { ...item, policy_parameters: { [name]: value } } : item)); }
 
   async function runSimulation() {
     setBusy(true); setError('');
@@ -106,6 +115,7 @@ export default function Simulator() {
           <label className="field"><span>Population preset</span><select className="input" value={preset} onChange={(e) => setPreset(e.target.value)}>{(populations.length ? populations : Object.entries(presets).map(([id, v]) => ({ id, name: v.label, synthetic: true }))).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <p className="helper">{presets[preset]?.description || 'Synthetic population preset. Select the Chennai option to use its observed Census 2011 population anchor.'}</p>
           {chennaiAnchor && <div className="policy-note"><b>OBSERVED DATA · Chennai Census 2011</b><span>{chennaiAnchor.observed_population.toLocaleString()} people observed; this {chennaiAnchor.synthetic_sample_size.toLocaleString()}-agent sample represents {Math.round(chennaiAnchor.people_per_synthetic_agent).toLocaleString()} people per agent.</span><span>Trust, stress, compliance and resource access remain synthetic assumptions.</span></div>}
+          {preset === 'chennai_census_2011' && <div className="policy-note"><b>Ward targeting</b><span>{targetWards.length ? 'Policy effects will be directly applied to Ward ' + targetWards.join(', ') + '. Ward allocation is synthetic.' : 'No specific ward selected; policy applies across the synthetic Chennai sample.'}</span><button className="btn" onClick={() => router.push('/map')}>Choose a ward on the map →</button></div>}
           <div className="policy-note"><b>Experiment population</b><span>Every PolicyForge experiment uses 10,000 synthetic agents.</span></div>
           <label className="field"><span>Rounds <b>{rounds}</b></span><input className="range" type="range" min="1" max="100" value={rounds} onChange={(e) => setRounds(Number(e.target.value))}/></label>
         </div>
@@ -114,6 +124,8 @@ export default function Simulator() {
           <label className="field"><span>Policy</span><select className="input" value={policy} onChange={(e) => setPolicy(e.target.value)}>{policies.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           {selectedPolicy && <div className="policy-note"><b>{selectedPolicy.name}</b><span>{selectedPolicy.description}</span></div>}
           <label className="field"><span>{parameterLabel} <b>{Math.round(parameter * 100)}%</b></span><input className="range" type="range" min={parameterMin} max={parameterMax} step="0.05" value={parameter} onChange={(e) => setParameter(Number(e.target.value))}/></label>
+          <label className="field"><span>Combine with one additional policy</span><select className="input" value="" onChange={(e) => { addPolicyToBundle(e.target.value); e.currentTarget.value = ''; }}><option value="">No additional policy</option>{policies.filter((item) => item.id !== policy && !bundle.some((entry) => entry.policy_id === item.id)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          {bundle.map((entry) => { const companion = policies.find((item) => item.id === entry.policy_id); const companionParameter = companion ? Object.keys(companion.parameters)[0] : 'parameter'; const value = entry.policy_parameters[companionParameter] ?? 0; return <div className="policy-note" key={entry.policy_id}><b>{companion?.name}</b><span>{companion?.description}</span><label className="field"><span>{companionParameter.replace('_', ' ')} <b>{Math.round(value * 100)}%</b></span><input className="range" type="range" min={companionParameter === 'cost_change' ? -0.5 : 0} max={companionParameter === 'cost_change' ? 0.25 : 0.8} step="0.05" value={value} onChange={(e) => updateBundleParameter(entry.policy_id, companionParameter, Number(e.target.value))}/></label><button className="btn" onClick={() => setBundle([])}>Remove companion</button></div>; })}
           <div className="two-col"><label className="field"><span>Seed</span><input className="input" type="number" value={seed} onChange={(e) => setSeed(Number(e.target.value))}/></label><label className="field"><span>Neighborhoods</span><input className="input muted-input" type="number" value={8} disabled /></label></div>
           <button className="btn primary run-button" onClick={runSimulation} disabled={busy}>{busy ? 'SIMULATING…' : 'RUN POLICYFORGE EXPERIMENT →'}</button>
           {error && <div className="error-box">{error}</div>}
