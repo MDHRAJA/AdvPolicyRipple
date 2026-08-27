@@ -6,10 +6,16 @@ class PopulationConfig(BaseModel):
     size: int = Field(default=10000, ge=10000, le=10000)
     neighborhoods: int = Field(default=8, ge=2, le=50)
 
+class PolicySelection(BaseModel):
+    policy_id: str
+    policy_parameters: Dict[str, float] = Field(default_factory=dict)
+
 class SimulationConfig(BaseModel):
     population: PopulationConfig = Field(default_factory=PopulationConfig)
     policy_id: str = 'water_rationing'
     policy_parameters: Dict[str, float] = Field(default_factory=dict)
+    policy_bundle: List[PolicySelection] = Field(default_factory=list, max_length=2)
+    target_wards: List[str] = Field(default_factory=list, max_length=25)
     rounds: int = Field(default=20, ge=1, le=100)
     seed: int = 42
 
