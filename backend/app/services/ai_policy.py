@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from itertools import combinations
 
 from app.core.models import PopulationConfig, SimulationConfig
 from app.services.policies import POLICIES, get_policy
@@ -181,12 +182,22 @@ def interpret(prompt, objectives, size=10000, rounds=20, seed=42):
 
 
 def recommend(config, objectives):
+    """Rank individual policies and every supported two-policy bundle."""
     candidates = []
-    for policy_id, policy in POLICIES.items():
-        parameter_name, value = next(iter(policy['parameters'].items()))
+    policy_sets = [(policy_id,) for policy_id in POLICIES]
+    policy_sets.extend(combinations(POLICIES, 2))
+    for policy_ids in policy_sets:
+        selections, implementations, names = [], [], []
+        for policy_id in policy_ids:
+            policy = POLICIES[policy_id]
+            parameter_name, value = next(iter(policy['parameters'].items()))
+            selections.append({'policy_id': policy_id, 'policy_parameters': {parameter_name: value}})
+            implementations.append({'policy_id': policy_id, 'name': policy['name'], **_implementation(policy_id, parameter_name, value)})
+            names.append(policy['name'])
         candidate = config.model_copy(deep=True)
-        candidate.policy_id = policy_id
-        candidate.policy_parameters = {parameter_name: value}
+        candidate.policy_id = selections[0]['policy_id']
+        candidate.policy_parameters = selections[0]['policy_parameters']
+        candidate.policy_bundle = selections if len(selections) > 1 else []
         outcome = run(candidate)
         final = outcome['final']
         score = sum([
@@ -196,18 +207,13 @@ def recommend(config, objectives):
             final['trust'] if 'build_trust' in objectives else 0,
             final['compliance'] if 'improve_compliance' in objectives else 0,
         ])
-        candidates.append({'policy_id': policy_id, 'name': policy['name'], 'score': round(score, 4), 'preview': final, 'income_groups': outcome['income_group_impacts'], 'implementation': _implementation(policy_id, parameter_name, value)})
+        candidates.append({'policy_id': '+'.join(policy_ids), 'name': ' + '.join(names), 'score': round(score, 4), 'preview': final, 'income_groups': outcome['income_group_impacts'], 'policy_bundle': implementations, 'implementation': implementations[0]})
     candidates.sort(key=lambda item: item['score'], reverse=True)
     best = candidates[0]
     evidence = []
-    if 'improve_access' in objectives:
-        evidence.append(f"resource access {best['preview']['resource_access'] * 100:.1f}%")
-    if 'reduce_stress' in objectives:
-        evidence.append(f"stress {best['preview']['stress'] * 100:.1f}%")
-    if 'reduce_inequality' in objectives:
-        evidence.append(f"inequality {best['preview']['inequality'] * 100:.1f}%")
-    if 'build_trust' in objectives:
-        evidence.append(f"trust {best['preview']['trust'] * 100:.1f}%")
-    if 'improve_compliance' in objectives:
-        evidence.append(f"compliance {best['preview']['compliance'] * 100:.1f}%")
-    return {'recommended': best, 'alternatives': candidates[1:3], 'explanation': f"AI rationale: this option ranked first against {', '.join(objectives).replace('_', ' ')} after comparing every supported policy. Its modelled profile is {', '.join(evidence)}.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
+    if 'improve_access' in objectives: evidence.append(f"resource access {best['preview']['resource_access'] * 100:.1f}%")
+    if 'reduce_stress' in objectives: evidence.append(f"stress {best['preview']['stress'] * 100:.1f}%")
+    if 'reduce_inequality' in objectives: evidence.append(f"inequality {best['preview']['inequality'] * 100:.1f}%")
+    if 'build_trust' in objectives: evidence.append(f"trust {best['preview']['trust'] * 100:.1f}%")
+    if 'improve_compliance' in objectives: evidence.append(f"compliance {best['preview']['compliance'] * 100:.1f}%")
+    return {'recommended': best, 'alternatives': candidates[1:3], 'explanation': f"AI rationale: this option ranked first against {', '.join(objectives).replace('_', ' ')} after comparing individual policies and every supported two-policy bundle. Its modelled profile is {', '.join(evidence)}.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
