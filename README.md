@@ -78,3 +78,7 @@ $env:OPENAI_MODEL = 'gpt-4.1-mini'
 ```
 
 The OpenAI layer can only choose from PolicyForge’s supported policies and bounded parameters; the backend validates its JSON output before running a simulation. It never supplies simulation metrics. To undo or disable the integration, remove `OPENAI_API_KEY` or set `POLICYFORGE_AI_MODE = 'rule_based'`; the built-in interpreter remains the default fallback, including if an OpenAI request fails.
+
+## Chennai ward explorer
+
+`/map` displays official Greater Chennai Corporation 2025 ward-boundary geometry and administrative attributes through the GCC GIS FeatureServer. It is an observed administrative boundary layer, not a ward-level socioeconomic, behavioural, or simulation dataset. Clickable ward profiles state this provenance and boundary explicitly; no missing ward indicators are estimated.
