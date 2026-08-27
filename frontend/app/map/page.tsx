@@ -35,7 +35,7 @@ export default function WardMapPage() {
   const [profile, setProfile] = useState<WardProfile | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => { const id = searchParams.get('id'); if (id) api.get(id).then((data) => setSimulation(data.result)).catch(() => setError('Could not load the ward simulation overlay.')); const wards = searchParams.get('wards'); if (wards) setTargetWards(wards.split(',').filter((ward) => /^\\d{1,3}$/.test(ward))); }, [searchParams]);
+  useEffect(() => { const id = searchParams.get('id'); if (id) api.get(id).then((data) => setSimulation(data.result)).catch(() => setError('Could not load the ward simulation overlay.')); const wards = searchParams.get('wards'); if (wards) setTargetWards(wards.split(',').filter((ward) => /^\d{1,3}$/.test(ward))); }, [searchParams]);
   useEffect(() => { api.chennaiWards().then(setWards).catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load the official ward layer.')); }, []);
   useEffect(() => { if (!selected) return; setProfile(null); api.wardProfile(selected).then(setProfile).catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load this ward profile.')); }, [selected]);
 
