@@ -37,6 +37,9 @@ export type ChennaiObserved = {
   sources: SourceCatalog;
 };
 
+export type ChennaiWards = { features: Array<{ properties: Record<string, unknown>; geometry: { type: string; coordinates: unknown } }>; evidence_type: 'OBSERVED DATA'; geography: string; period: string; source_org: string; source_url: string; provenance: string; data_boundary: string };
+export type WardProfile = { evidence_type: 'OBSERVED DATA'; ward: string; zone?: string; region?: string; assembly_constituency?: string; official_area_square_metres?: number; source_org: string; source_url: string; provenance: string; data_boundary: string };
+
 export type ChennaiAnchor = {
   evidence_type: 'OBSERVED DATA';
   observed_population: number;
@@ -117,6 +120,8 @@ export const api = {
   planPolicy: (payload: { prompt: string; objectives: string[]; size: number; rounds: number; seed: number }) => request<PolicyPlan>('/api/ai/policy-plan', { method: 'POST', body: JSON.stringify(payload) }),
   populations: () => request<Population[]>('/api/populations'),
   chennaiObserved: () => request<ChennaiObserved>('/api/observed/chennai'),
+  chennaiWards: () => request<ChennaiWards>('/api/observed/chennai/wards'),
+  wardProfile: (ward: string) => request<WardProfile>('/api/observed/chennai/wards/' + ward),
   chennaiCalibration: (size: number) => request<ChennaiAnchor>(`/api/observed/chennai/calibration?size=${size}`),
   create: (config: SimulationConfig) =>
     request<{ simulation_id: string; status: string }>('/api/simulations', {
