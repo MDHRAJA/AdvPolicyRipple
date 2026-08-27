@@ -51,6 +51,31 @@ def metrics(agents):
         'cooperation': statistics.fmean(agent['cooperation'] for agent in agents),
     }
 
+
+def income_group_metrics(agents):
+    """Return the same core indicators for each synthetic income segment."""
+    groups = {}
+    for income_band in ('low', 'middle', 'high'):
+        members = [agent for agent in agents if agent['income_band'] == income_band]
+        groups[income_band] = {
+            'resource_access': statistics.fmean(agent['resource_access'] for agent in members),
+            'stress': statistics.fmean(agent['stress'] for agent in members),
+            'trust': statistics.fmean(agent['trust'] for agent in members),
+            'compliance': statistics.fmean((1 - agent['risk'] * .35) if agent['support'] >= .35 else .35 for agent in members),
+        }
+    return groups
+
+
+def income_group_impacts(baseline, final):
+    return {
+        income_band: {
+            'baseline': baseline[income_band],
+            'final': final[income_band],
+            'change': {metric: round(final[income_band][metric] - baseline[income_band][metric], 4) for metric in final[income_band]},
+        }
+        for income_band in baseline
+    }
+
 def apply_policy(agent, policy):
     parameters = policy['parameters']
     policy_type = policy['policy_type']
@@ -94,6 +119,7 @@ def run(config):
     rng = random.Random(config.seed)
     agents = population(config.population, config.seed)
     baseline = metrics(agents)
+    baseline_income_groups = income_group_metrics(agents)
     policy = get_policy(config.policy_id, config.policy_parameters)
     timeline = []
 
@@ -134,11 +160,13 @@ def run(config):
         timeline.append({'round': round_number, **metrics(agents)})
 
     final = metrics(agents)
+    final_income_groups = income_group_metrics(agents)
     weights = {'inequality': .22, 'stress': .22, 'relocation': .18, 'trust': .18, 'compliance': .20}
     score = max(0, min(100, 50 + 100 * sum(weights[key] * ((-1 if key == 'compliance' else 1) * (final[key] - baseline[key])) for key in weights)))
     examples = sorted(agents, key=lambda agent: agent['stress'], reverse=True)
     result = {
-        'baseline': baseline, 'final': final, 'timeline': timeline, 'unintended_consequence_score': round(score, 2),
+        'baseline': baseline, 'final': final, 'timeline': timeline,
+        'income_group_impacts': income_group_impacts(baseline_income_groups, final_income_groups), 'unintended_consequence_score': round(score, 2),
         'agent_examples': [{'profile': agent['income_band'] + ' / ' + agent['age_group'], 'neighborhood': agent['neighborhood'], 'resource_access': round(agent['resource_access'], 3), 'stress': round(agent['stress'], 3), 'trust': round(agent['trust'], 3), 'support': round(agent['support'], 3)} for agent in examples[:3]],
         'assumptions': ['Population attributes are SYNTHETIC DEMO DATA.', 'Trust and cooperation are synthetic behavioural state variables that respond to policy experience and local interactions.', 'Results are simulation outputs, not predictions of actual human behavior.'],
         'evidence_labels': {'baseline': 'SIMULATION RESULTS', 'final': 'SIMULATION RESULTS', 'assumptions': 'SIMULATION ASSUMPTIONS'},
