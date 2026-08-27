@@ -155,7 +155,7 @@ def run(config):
     baseline_income_groups = income_group_metrics(agents)
     baseline_wards = ward_metrics(agents) if config.population.preset == 'chennai_census_2011' else None
     policies = active_policies(config)
-    target_wards = set(config.target_wards)
+    target_wards = set(config.target_wards) if config.population.preset == 'chennai_census_2011' else set()
     timeline = []
 
     for round_number in range(1, config.rounds + 1):
