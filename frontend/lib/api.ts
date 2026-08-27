@@ -82,6 +82,8 @@ export const ADVERSE_METRICS = new Set<keyof Metrics>(['inequality', 'stress', '
 
 export type IncomeGroupImpact = { baseline: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'>; final: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'>; change: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> };
 
+export type AIInterpreterStatus = { configured: 'openai' | 'rule_based'; display: string; fallback: string };
+
 export type PolicyPlan = { interpretation: string; interpretation_source: 'openai' | 'rule_based'; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; policy_detail: { parameter: string; value_percent: number; population_basis: string }; recommendation: { recommended: { policy_id: string; name: string; score: number; preview: Metrics; income_groups: Record<'low' | 'middle' | 'high', IncomeGroupImpact>; implementation: { parameter: string; direction: string; value_percent: number; instruction: string } }; alternatives: Array<{ policy_id: string; name: string; score: number; preview: Metrics }>; explanation: string; boundary: string } };
 
 export type SimulationResult = {
@@ -111,6 +113,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   policies: () => request<Policy[]>('/api/policies'),
+  aiStatus: () => request<AIInterpreterStatus>('/api/ai/status'),
   planPolicy: (payload: { prompt: string; objectives: string[]; size: number; rounds: number; seed: number }) => request<PolicyPlan>('/api/ai/policy-plan', { method: 'POST', body: JSON.stringify(payload) }),
   populations: () => request<Population[]>('/api/populations'),
   chennaiObserved: () => request<ChennaiObserved>('/api/observed/chennai'),
