@@ -13,10 +13,10 @@ const presets: Record<string, { label: string; description: string }> = {
 };
 
 const scenarioDefaults: Record<string, Partial<SimulationConfig>> = {
-  water: { policy_id: 'water_rationing', policy_parameters: { reduction: 0.25 }, population: { preset: 'balanced', size: 500, neighborhoods: 8 }, rounds: 20 },
-  housing: { policy_id: 'rent_zoning', policy_parameters: { cost_change: -0.15 }, population: { preset: 'unequal', size: 500, neighborhoods: 8 }, rounds: 20 },
-  transport: { policy_id: 'transport_subsidy', policy_parameters: { subsidy: 0.15 }, population: { preset: 'dense', size: 500, neighborhoods: 8 }, rounds: 20 },
-  energy: { policy_id: 'energy_rationing', policy_parameters: { reduction: 0.2 }, population: { preset: 'dense', size: 500, neighborhoods: 8 }, rounds: 20 },
+  water: { policy_id: 'water_rationing', policy_parameters: { reduction: 0.25 }, population: { preset: 'balanced', size: 10000, neighborhoods: 8 }, rounds: 20 },
+  housing: { policy_id: 'rent_zoning', policy_parameters: { cost_change: -0.15 }, population: { preset: 'unequal', size: 10000, neighborhoods: 8 }, rounds: 20 },
+  transport: { policy_id: 'transport_subsidy', policy_parameters: { subsidy: 0.15 }, population: { preset: 'dense', size: 10000, neighborhoods: 8 }, rounds: 20 },
+  energy: { policy_id: 'energy_rationing', policy_parameters: { reduction: 0.2 }, population: { preset: 'dense', size: 10000, neighborhoods: 8 }, rounds: 20 },
 };
 
 const metricLabels: Record<string, string> = { resource_access: 'Resource access', inequality: 'Inequality', stress: 'Stress', satisfaction: 'Satisfaction', policy_support: 'Policy support', compliance: 'Compliance', trust: 'Trust', relocation: 'Relocation', cooperation: 'Cooperation' };
@@ -28,7 +28,7 @@ export default function Simulator() {
   const [populations, setPopulations] = useState<Population[]>([]);
   const [policy, setPolicy] = useState('water_rationing');
   const [preset, setPreset] = useState('balanced');
-  const [size, setSize] = useState(500);
+  const [size, setSize] = useState(10000);
   const [rounds, setRounds] = useState(20);
   const [seed, setSeed] = useState(42);
   const [parameter, setParameter] = useState(0.25);
@@ -106,7 +106,7 @@ export default function Simulator() {
           <label className="field"><span>Population preset</span><select className="input" value={preset} onChange={(e) => setPreset(e.target.value)}>{(populations.length ? populations : Object.entries(presets).map(([id, v]) => ({ id, name: v.label, synthetic: true }))).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <p className="helper">{presets[preset]?.description || 'Synthetic population preset. Select the Chennai option to use its observed Census 2011 population anchor.'}</p>
           {chennaiAnchor && <div className="policy-note"><b>OBSERVED DATA · Chennai Census 2011</b><span>{chennaiAnchor.observed_population.toLocaleString()} people observed; this {chennaiAnchor.synthetic_sample_size.toLocaleString()}-agent sample represents {Math.round(chennaiAnchor.people_per_synthetic_agent).toLocaleString()} people per agent.</span><span>Trust, stress, compliance and resource access remain synthetic assumptions.</span></div>}
-          <label className="field"><span>Agents <b>{size.toLocaleString()}</b></span><input className="range" type="range" min="100" max="10000" step="100" value={size} onChange={(e) => setSize(Number(e.target.value))}/></label>
+          <div className="policy-note"><b>Experiment population</b><span>Every PolicyForge experiment runs with a fixed 10,000 synthetic agents.</span></div>
           <label className="field"><span>Rounds <b>{rounds}</b></span><input className="range" type="range" min="1" max="100" value={rounds} onChange={(e) => setRounds(Number(e.target.value))}/></label>
         </div>
         <div className="label mt-8">02 · Policy shock</div><h2 className="section-title">What changes?</h2>
@@ -126,5 +126,5 @@ export default function Simulator() {
 
 function SimulationPreview({ result }: { result: SimulationResult }) {
   const metrics = Object.entries(result.final) as Array<[keyof typeof result.final, number]>;
-  return <div><div className="result-hero"><div><h2 className="section-title">What happened?</h2><p className="helper">{result.timeline.length} rounds · seeded simulation</p></div><div className="score"><span>Unintended consequence</span><b>{Number(result.unintended_consequence_score).toFixed(2)}</b></div></div><div className="metric-grid">{metrics.map(([key, value]) => <div className="metric" key={key}><span>{metricLabels[key]}</span><b>{Number(value).toFixed(2)}</b><div className="metric-bar"><i style={{ width: `${Math.max(0, Math.min(100, Number(value) * 100))}%` }} /></div></div>)}</div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><LineChart data={result.timeline}><XAxis dataKey="round" stroke="#71839a"/><YAxis domain={[0,1]} stroke="#71839a"/><Tooltip contentStyle={{ background:'#0b1727', border:'1px solid #263e58', borderRadius:10 }}/><Line type="monotone" dataKey="resource_access" stroke="#52d3b4" strokeWidth={2} dot={false}/><Line type="monotone" dataKey="stress" stroke="#f59e0b" strokeWidth={2} dot={false}/><Line type="monotone" dataKey="trust" stroke="#60a5fa" strokeWidth={2} dot={false}/></LineChart></ResponsiveContainer></div><div className="legend-row"><span><i className="dot teal"/>Resource access</span><span><i className="dot amber"/>Stress</span><span><i className="dot blue"/>Trust</span></div></div>;
+  return <div><div className="result-hero"><div><h2 className="section-title">What happened?</h2><p className="helper">{result.timeline.length} rounds · seeded simulation</p></div><div className="score"><span>Unintended consequence</span><b>{Number(result.unintended_consequence_score).toFixed(2)}</b></div></div><div className="metric-grid">{metrics.map(([key, value]) => <div className="metric" key={key}><span>{metricLabels[key]}</span><b>{`${(Number(value) * 100).toFixed(1)}%`}</b><div className="metric-bar"><i style={{ width: `${Math.max(0, Math.min(100, Number(value) * 100))}%` }} /></div></div>)}</div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><LineChart data={result.timeline}><XAxis dataKey="round" stroke="#71839a"/><YAxis domain={[0,1]} stroke="#71839a"/><Tooltip contentStyle={{ background:'#0b1727', border:'1px solid #263e58', borderRadius:10 }}/><Line type="monotone" dataKey="resource_access" stroke="#52d3b4" strokeWidth={2} dot={false}/><Line type="monotone" dataKey="stress" stroke="#f59e0b" strokeWidth={2} dot={false}/><Line type="monotone" dataKey="trust" stroke="#60a5fa" strokeWidth={2} dot={false}/></LineChart></ResponsiveContainer></div><div className="legend-row"><span><i className="dot teal"/>Resource access</span><span><i className="dot amber"/>Stress</span><span><i className="dot blue"/>Trust</span></div></div>;
 }
