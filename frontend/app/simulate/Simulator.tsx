@@ -44,6 +44,15 @@ export default function Simulator() {
   }, []);
 
   useEffect(() => {
+    const token = searchParams.get('config');
+    if (token) {
+      try {
+        const shared = JSON.parse(decodeURIComponent(escape(window.atob(token)))) as SimulationConfig;
+        setPolicy(shared.policy_id); setPreset(shared.population.preset); setSize(shared.population.size); setRounds(shared.rounds); setSeed(shared.seed);
+        const value = Object.values(shared.policy_parameters)[0]; if (typeof value === 'number') setParameter(value);
+        return;
+      } catch { setError('Could not read the AI policy configuration.'); }
+    }
     const scenario = searchParams.get('scenario');
     const presetConfig = scenario ? scenarioDefaults[scenario] : undefined;
     if (!presetConfig) return;
