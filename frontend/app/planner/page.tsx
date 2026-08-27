@@ -34,7 +34,14 @@ export default function PlannerPage() {
   }
   function apply() {
     if (!plan) return;
-    const config = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(plan.proposed_config)))));
+    const recommendation = plan.recommendation.recommended.policy_bundle;
+    const reviewedConfig = recommendation.length ? {
+      ...plan.proposed_config,
+      policy_id: recommendation[0].policy_id,
+      policy_parameters: recommendation[0].policy_parameters,
+      policy_bundle: recommendation.length > 1 ? recommendation.map((item) => ({ policy_id: item.policy_id, policy_parameters: item.policy_parameters })) : [],
+    } : plan.proposed_config;
+    const config = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(reviewedConfig)))));
     router.push(`/simulate?config=${config}`);
   }
 
