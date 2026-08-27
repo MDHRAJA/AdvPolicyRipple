@@ -50,6 +50,7 @@ def test_ai_policy_plan():
     body = response.json()
     assert body['proposed_config']['policy_id'] == 'water_rationing'
     assert set(body['recommendation']['recommended']['income_groups']) == {'low', 'middle', 'high'}
+    assert 1 <= len(body['recommendation']['recommended']['policy_bundle']) <= 2
 
 
 def test_income_group_impacts_are_returned():
