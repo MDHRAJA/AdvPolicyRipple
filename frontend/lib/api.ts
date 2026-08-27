@@ -91,6 +91,7 @@ export type SimulationResult = {
   final: Metrics;
   unintended_consequence_score: number;
   observed_data_anchor?: ChennaiAnchor;
+  income_group_impacts?: Record<'low' | 'middle' | 'high', IncomeGroupImpact>;
   [key: string]: unknown;
 };
 
