@@ -192,7 +192,7 @@ def recommend(config, objectives):
             policy = POLICIES[policy_id]
             parameter_name, value = next(iter(policy['parameters'].items()))
             selections.append({'policy_id': policy_id, 'policy_parameters': {parameter_name: value}})
-            implementations.append({'policy_id': policy_id, 'name': policy['name'], **_implementation(policy_id, parameter_name, value)})
+            implementations.append({'policy_id': policy_id, 'name': policy['name'], 'policy_parameters': {parameter_name: value}, **_implementation(policy_id, parameter_name, value)})
             names.append(policy['name'])
         candidate = config.model_copy(deep=True)
         candidate.policy_id = selections[0]['policy_id']
