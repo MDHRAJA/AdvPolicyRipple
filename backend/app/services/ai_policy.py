@@ -10,6 +10,14 @@ KEYWORDS = {
     'transport_subsidy': ('bus', 'metro', 'transport', 'mobility'),
     'public_subsidy': ('subsidy', 'cash', 'income', 'afford'),
 }
+PHRASE_SIGNALS = {
+    'water_rationing': ('water shortage', 'water scarcity', 'drinking water'),
+    'energy_rationing': ('power cut', 'energy shortage', 'electricity outage'),
+    'rent_zoning': ('housing cost', 'rent burden', 'affordable housing'),
+    'transport_subsidy': ('public transport', 'bus fare', 'metro fare'),
+    'public_subsidy': ('cost of living', 'financial relief', 'cash support'),
+}
+
 OBJECTIVES = {
     'reduce_stress': ('stress', 'hardship', 'pressure'),
     'improve_access': ('access', 'availability', 'service'),
@@ -17,6 +25,13 @@ OBJECTIVES = {
     'build_trust': ('trust', 'confidence', 'legitimacy'),
     'improve_compliance': ('compliance', 'adoption', 'follow'),
 }
+
+def _policy_scores(text):
+    """Use single terms and stronger multi-word signals to interpret plain language."""
+    return {
+        policy_id: sum(word in text for word in words) + 3 * sum(phrase in text for phrase in PHRASE_SIGNALS[policy_id])
+        for policy_id, words in KEYWORDS.items()
+    }
 
 def _percentage(text, default):
     match = re.search(r'(\d{1,2}(?:\.\d+)?)\s*%', text)
@@ -33,11 +48,12 @@ def _implementation(policy_id, parameter, value):
 
 def interpret(prompt, objectives, size=10000, rounds=20, seed=42):
     text = prompt.lower()
-    scores = {policy_id: sum(word in text for word in words) for policy_id, words in KEYWORDS.items()}
+    scores = _policy_scores(text)
     selected = max(scores, key=scores.get)
     if scores[selected] == 0:
         selected = 'public_subsidy' if any(word in text for word in ('support', 'help', 'relief')) else 'water_rationing'
     policy = get_policy(selected)
+    matched_signals = [signal for signal in (*KEYWORDS[selected], *PHRASE_SIGNALS[selected]) if signal in text]
     parameter_name, default = next(iter(policy['parameters'].items()))
     value = _percentage(text, default)
     if parameter_name == 'cost_change' and value:
@@ -47,7 +63,7 @@ def interpret(prompt, objectives, size=10000, rounds=20, seed=42):
         normalized_objectives = ['improve_access', 'reduce_stress']
     preset = 'chennai_census_2011' if 'chennai' in text else 'balanced'
     config = SimulationConfig(population=PopulationConfig(preset=preset, size=10000), policy_id=selected, policy_parameters={parameter_name: value}, rounds=rounds, seed=seed)
-    return {'interpretation': f"PolicyForge interpreted this as {policy['name']} with {parameter_name.replace('_', ' ')} set to {round(value * 100)}%.", 'assumptions': ['This is a transparent rule-based language interpreter, not an observed behavioural model.', 'You must review and edit the proposed configuration before relying on the results.'], 'objectives': normalized_objectives, 'proposed_config': config.model_dump(), 'matched_policy': policy, 'policy_detail': {'parameter': parameter_name, 'value_percent': round(value * 100, 1), 'population_basis': 'Chennai Census 2011 anchored synthetic sample' if preset == 'chennai_census_2011' else 'Synthetic city preset', 'run_design': '10,000 agents · 20 rounds unless explicitly changed · seeded and reproducible'}}
+    return {'interpretation': f"PolicyForge interpreted this as {policy['name']} with {parameter_name.replace('_', ' ')} set to {round(value * 100)}%, based on: {', '.join(matched_signals) or 'the overall problem description'}.", 'assumptions': ['This is a transparent rule-based language interpreter, not an observed behavioural model.', 'You must review and edit the proposed configuration before relying on the results.'], 'objectives': normalized_objectives, 'proposed_config': config.model_dump(), 'matched_policy': policy, 'policy_detail': {'parameter': parameter_name, 'value_percent': round(value * 100, 1), 'population_basis': 'Chennai Census 2011 anchored synthetic sample' if preset == 'chennai_census_2011' else 'Synthetic city preset', 'run_design': '10,000 agents · 20 rounds unless explicitly changed · seeded and reproducible'}}
 
 def recommend(config, objectives):
     candidates = []
@@ -56,9 +72,21 @@ def recommend(config, objectives):
         candidate = config.model_copy(deep=True)
         candidate.policy_id = policy_id
         candidate.policy_parameters = {parameter_name: value}
-        final = run(candidate)['final']
+        outcome = run(candidate)
+        final = outcome['final']
         score = sum([(1 - final['stress']) if 'reduce_stress' in objectives else 0, final['resource_access'] if 'improve_access' in objectives else 0, (1 - final['inequality']) if 'reduce_inequality' in objectives else 0, final['trust'] if 'build_trust' in objectives else 0, final['compliance'] if 'improve_compliance' in objectives else 0])
-        candidates.append({'policy_id': policy_id, 'name': policy['name'], 'score': round(score, 4), 'preview': final, 'implementation': _implementation(policy_id, parameter_name, value)})
+        candidates.append({'policy_id': policy_id, 'name': policy['name'], 'score': round(score, 4), 'preview': final, 'income_groups': outcome['income_group_impacts'], 'implementation': _implementation(policy_id, parameter_name, value)})
     candidates.sort(key=lambda item: item['score'], reverse=True)
     best = candidates[0]
-    return {'recommended': best, 'alternatives': candidates[1:3], 'explanation': f"AI rationale: this option produced the strongest combined synthetic outcome for {', '.join(objectives).replace('_', ' ')} when compared with every supported policy at its documented default percentage.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
+    evidence = []
+    if 'improve_access' in objectives:
+        evidence.append(f"resource access {best['preview']['resource_access'] * 100:.1f}%")
+    if 'reduce_stress' in objectives:
+        evidence.append(f"stress {best['preview']['stress'] * 100:.1f}%")
+    if 'reduce_inequality' in objectives:
+        evidence.append(f"inequality {best['preview']['inequality'] * 100:.1f}%")
+    if 'build_trust' in objectives:
+        evidence.append(f"trust {best['preview']['trust'] * 100:.1f}%")
+    if 'improve_compliance' in objectives:
+        evidence.append(f"compliance {best['preview']['compliance'] * 100:.1f}%")
+    return {'recommended': best, 'alternatives': candidates[1:3], 'explanation': f"AI rationale: this option ranked first against {', '.join(objectives).replace('_', ' ')} after comparing every supported policy. Its modelled profile is {', '.join(evidence)}.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
