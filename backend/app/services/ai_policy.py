@@ -77,8 +77,10 @@ def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, so
     normalized_objectives = [item for item in objectives if item in VALID_OBJECTIVES]
     if not normalized_objectives:
         normalized_objectives = ['improve_access', 'reduce_stress']
-    ward_match = re.search(r'\bward\s*(\d{1,3})\b', prompt, re.IGNORECASE)
-    target_wards = [ward_match.group(1)] if ward_match and 1 <= int(ward_match.group(1)) <= 200 else []
+    ward_phrase = re.search(r'\bwards?\s+([0-9,\s-]+(?:and\s+\d{1,3})?)', prompt, re.IGNORECASE)
+    target_wards = []
+    if ward_phrase:
+        target_wards = sorted({str(number) for number in re.findall(r'\d{1,3}', ward_phrase.group(1)) if 1 <= int(number) <= 200}, key=int)
     preset = 'chennai_census_2011' if 'chennai' in prompt.lower() or target_wards else 'balanced'
     config = SimulationConfig(
         population=PopulationConfig(preset=preset, size=10000),
@@ -94,6 +96,7 @@ def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, so
         'assumptions': [
             'The language layer only selects supported PolicyForge policies and bounded parameters.',
             'Every proposed setting must be reviewed before simulation; simulation outputs remain the source of numeric results.',
+            'For Chennai proposals, no ward target means the policy is applied citywide across the synthetic Chennai sample.',
         ],
         'objectives': normalized_objectives,
         'proposed_config': config.model_dump(),
