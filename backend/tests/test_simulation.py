@@ -40,3 +40,10 @@ def test_assessment_returns_uncertainty():
     assert response.status_code == 200
     body = response.json()
     assert {'expected_outcome', 'best_case', 'worst_case', 'uncertainty'} <= body.keys()
+
+
+def test_ai_policy_plan():
+    client = TestClient(app)
+    response = client.post('/api/ai/policy-plan', json={'prompt': 'Water shortages in Chennai are affecting low income households by 25%', 'objectives': ['improve_access', 'reduce_stress']})
+    assert response.status_code == 200
+    assert response.json()['proposed_config']['policy_id'] == 'water_rationing'
