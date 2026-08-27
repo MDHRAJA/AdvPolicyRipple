@@ -66,3 +66,15 @@ npm run build
 - `POST /api/simulations/{id}/run`
 - `POST /api/calibration/run`
 - `POST /api/assessment`
+
+## Optional OpenAI policy interpretation
+
+PolicyForge runs without an external AI service by default. To opt into OpenAI-assisted interpretation, set these **backend-only** environment variables before starting the API:
+
+```powershell
+$env:POLICYFORGE_AI_MODE = 'openai'
+$env:OPENAI_API_KEY = 'your_api_key_here'
+$env:OPENAI_MODEL = 'gpt-4.1-mini'
+```
+
+The OpenAI layer can only choose from PolicyForge’s supported policies and bounded parameters; the backend validates its JSON output before running a simulation. It never supplies simulation metrics. To undo or disable the integration, remove `OPENAI_API_KEY` or set `POLICYFORGE_AI_MODE = 'rule_based'`; the built-in interpreter remains the default fallback, including if an OpenAI request fails.
