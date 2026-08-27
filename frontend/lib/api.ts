@@ -80,7 +80,9 @@ export const METRIC_LABELS: Record<keyof Metrics, string> = {
 
 export const ADVERSE_METRICS = new Set<keyof Metrics>(['inequality', 'stress', 'relocation']);
 
-export type PolicyPlan = { interpretation: string; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; policy_detail: { parameter: string; value_percent: number; population_basis: string; run_design: string }; recommendation: { recommended: { policy_id: string; name: string; score: number; preview: Metrics; implementation: { parameter: string; direction: string; value_percent: number; instruction: string; stages: string[] } }; alternatives: Array<{ policy_id: string; name: string; score: number; preview: Metrics }>; explanation: string; boundary: string } };
+export type IncomeGroupImpact = { baseline: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'>; final: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'>; change: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> };
+
+export type PolicyPlan = { interpretation: string; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; policy_detail: { parameter: string; value_percent: number; population_basis: string; run_design: string }; recommendation: { recommended: { policy_id: string; name: string; score: number; preview: Metrics; income_groups: Record<'low' | 'middle' | 'high', IncomeGroupImpact>; implementation: { parameter: string; direction: string; value_percent: number; instruction: string; stages: string[] } }; alternatives: Array<{ policy_id: string; name: string; score: number; preview: Metrics }>; explanation: string; boundary: string } };
 
 export type SimulationResult = {
   simulation_id?: string;
