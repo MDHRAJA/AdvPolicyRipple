@@ -10,6 +10,7 @@ const links = [
   { href: '/scenarios', label: 'Scenarios' },
   { href: '/learning', label: 'Learning' },
   { href: '/evidence', label: 'Chennai data' },
+  { href: '/map', label: 'Ward map' },
   { href: '/about', label: 'About' },
 ];
 
