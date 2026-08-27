@@ -4,12 +4,12 @@ from app.core.models import SimulationConfig, PopulationConfig
 from app.services.simulation import run
 
 def test_reproducible():
-    config = SimulationConfig(population=PopulationConfig(size=100), rounds=5, seed=7)
+    config = SimulationConfig(population=PopulationConfig(size=10000), rounds=5, seed=7)
     assert run(config)['final'] == run(config)['final']
 
 def test_policy_effect():
-    baseline = SimulationConfig(population=PopulationConfig(size=100), rounds=5, seed=7, policy_parameters={'reduction': 0})
-    rationing = SimulationConfig(population=PopulationConfig(size=100), rounds=5, seed=7, policy_parameters={'reduction': .4})
+    baseline = SimulationConfig(population=PopulationConfig(size=10000), rounds=5, seed=7, policy_parameters={'reduction': 0})
+    rationing = SimulationConfig(population=PopulationConfig(size=10000), rounds=5, seed=7, policy_parameters={'reduction': .4})
     assert run(rationing)['final']['resource_access'] < run(baseline)['final']['resource_access']
 
 def test_health_and_catalogs():
@@ -22,7 +22,7 @@ def test_health_and_catalogs():
 
 def test_simulation_lifecycle():
     client = TestClient(app)
-    config = {'population': {'preset': 'balanced', 'size': 100, 'neighborhoods': 4}, 'policy_id': 'water_rationing', 'policy_parameters': {'reduction': 0.2}, 'rounds': 3, 'seed': 11}
+    config = {'population': {'preset': 'balanced', 'size': 10000, 'neighborhoods': 4}, 'policy_id': 'water_rationing', 'policy_parameters': {'reduction': 0.2}, 'rounds': 3, 'seed': 11}
     created = client.post('/api/simulations', json={'config': config})
     assert created.status_code == 200
     sid = created.json()['simulation_id']
@@ -35,7 +35,7 @@ def test_simulation_lifecycle():
 
 def test_assessment_returns_uncertainty():
     client = TestClient(app)
-    config = {'population': {'preset': 'balanced', 'size': 100, 'neighborhoods': 4}, 'policy_id': 'water_rationing', 'policy_parameters': {'reduction': 0.2}, 'rounds': 2, 'seed': 11}
+    config = {'population': {'preset': 'balanced', 'size': 10000, 'neighborhoods': 4}, 'policy_id': 'water_rationing', 'policy_parameters': {'reduction': 0.2}, 'rounds': 2, 'seed': 11}
     response = client.post('/api/assessment', json={'config': config})
     assert response.status_code == 200
     body = response.json()
