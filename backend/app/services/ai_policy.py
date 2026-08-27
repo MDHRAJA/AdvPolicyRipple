@@ -153,6 +153,17 @@ def _interpret_openai(prompt, objectives):
     )
 
 
+def interpreter_status():
+    """Expose the active interpreter mode without exposing any credentials."""
+    openai_enabled = os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'openai'
+    has_key = bool(os.getenv('OPENAI_API_KEY'))
+    if openai_enabled and has_key:
+        return {'configured': 'openai', 'display': 'OpenAI-assisted', 'fallback': 'Local rule-based fallback is used if OpenAI is unavailable.'}
+    if openai_enabled:
+        return {'configured': 'rule_based', 'display': 'Local rule-based', 'fallback': 'OpenAI mode was requested but no backend API key is configured.'}
+    return {'configured': 'rule_based', 'display': 'Local rule-based', 'fallback': 'OpenAI interpretation is currently disabled.'}
+
+
 def interpret(prompt, objectives, size=10000, rounds=20, seed=42):
     """Use OpenAI only when explicitly enabled; always fall back to local interpretation."""
     enabled = os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'openai'
