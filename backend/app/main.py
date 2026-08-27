@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.models import SimulationCreate,SimulationConfig,CompareRequest,CalibrationRequest,PolicyPlanRequest
 from app.db.store import init_db,create,get,save
 from app.services.observed_data import chennai_calibration_anchor,chennai_metrics,chennai_sources,chennai_summary
+from app.services.wards import chennai_ward_boundaries,ward_profile
 from app.services.policies import list_policies
 from app.services.ai_policy import interpret,recommend,interpreter_status
 from app.services.simulation import PRESETS,run
@@ -20,6 +21,15 @@ def populations(): return [{'id':k,'name':v['name'],'synthetic':True,'observed_c
 def observed_chennai(): return {'geography':'Chennai','evidence_type':'OBSERVED DATA','metrics':chennai_metrics(),'sources':chennai_sources()}
 @app.get('/api/observed/chennai/summary')
 def observed_chennai_summary(): return chennai_summary()
+@app.get('/api/observed/chennai/wards')
+def observed_chennai_wards():
+ try: return chennai_ward_boundaries()
+ except RuntimeError as error: raise HTTPException(503, str(error))
+@app.get('/api/observed/chennai/wards/{ward_number}')
+def observed_chennai_ward(ward_number:str):
+ try: return ward_profile(ward_number)
+ except KeyError: raise HTTPException(404, 'Ward not found')
+ except RuntimeError as error: raise HTTPException(503, str(error))
 @app.get('/api/observed/chennai/calibration')
 def observed_chennai_calibration(size:int=500):
  if size < 1: raise HTTPException(422,'size must be positive')
