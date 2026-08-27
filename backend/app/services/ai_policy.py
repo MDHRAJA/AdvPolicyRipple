@@ -77,11 +77,14 @@ def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, so
     normalized_objectives = [item for item in objectives if item in VALID_OBJECTIVES]
     if not normalized_objectives:
         normalized_objectives = ['improve_access', 'reduce_stress']
-    preset = 'chennai_census_2011' if 'chennai' in prompt.lower() else 'balanced'
+    ward_match = re.search(r'\\bward\\s*(\\d{1,3})\\b', prompt, re.IGNORECASE)
+    target_wards = [ward_match.group(1)] if ward_match and 1 <= int(ward_match.group(1)) <= 200 else []
+    preset = 'chennai_census_2011' if 'chennai' in prompt.lower() or target_wards else 'balanced'
     config = SimulationConfig(
         population=PopulationConfig(preset=preset, size=10000),
         policy_id=policy_id,
         policy_parameters={parameter_name: value},
+        target_wards=target_wards,
         rounds=20,
         seed=42,
     )
