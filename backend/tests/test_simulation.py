@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.models import SimulationConfig, PopulationConfig
 from app.services.simulation import run
+from app.services.ai_policy import interpret
 
 def test_reproducible():
     config = SimulationConfig(population=PopulationConfig(size=10000), rounds=5, seed=7)
@@ -56,3 +57,12 @@ def test_income_group_impacts_are_returned():
     impacts = run(config)['income_group_impacts']
     assert set(impacts) == {'low', 'middle', 'high'}
     assert all('stress' in impacts[group]['change'] for group in impacts)
+
+
+def test_openai_mode_without_key_falls_back_to_rules(monkeypatch):
+    monkeypatch.setenv('POLICYFORGE_AI_MODE', 'openai')
+    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+    plan = interpret('Reduce housing costs in Chennai by 20%', ['reduce_stress'])
+    assert plan['interpretation_source'] == 'rule_based'
+    assert plan['proposed_config']['policy_id'] == 'rent_zoning'
+    assert plan['proposed_config']['policy_parameters']['cost_change'] == -.2
