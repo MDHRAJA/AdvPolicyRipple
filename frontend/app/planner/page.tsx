@@ -25,7 +25,7 @@ export default function PlannerPage() {
   const [interpreter, setInterpreter] = useState<AIInterpreterStatus | null>(null);
 
   useEffect(() => { api.aiStatus().then(setInterpreter).catch(() => setInterpreter(null)); }, []);
-  useEffect(() => { const ward = searchParams.get('ward'); if (ward) setPrompt('Chennai Ward ' + ward + ': describe the local problem and propose a fair policy response.'); }, [searchParams]);
+  useEffect(() => { const wards = searchParams.get('wards') || searchParams.get('ward'); if (wards) setPrompt('Chennai Wards ' + wards + ': describe the local problem and propose a fair policy response.'); else if (searchParams.get('allChennai')) setPrompt('Chennai citywide: describe the local problem and propose a fair policy response.'); }, [searchParams]);
 
   function toggle(id: string) { setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
   async function interpret() {
