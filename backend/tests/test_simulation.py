@@ -72,3 +72,11 @@ def test_ward_service_metadata_is_not_simulation_data():
     from app.services.wards import GCC_WARD_SERVICE, GCC_WARD_SOURCE
     assert 'FeatureServer/2/query' in GCC_WARD_SERVICE
     assert GCC_WARD_SOURCE.startswith('https://gisgcc.chennaicorporation.gov.in/')
+
+
+def test_chennai_ward_impacts_and_policy_bundle():
+    config = SimulationConfig(population=PopulationConfig(preset='chennai_census_2011', size=10000), policy_id='water_rationing', policy_bundle=[{'policy_id': 'public_subsidy', 'policy_parameters': {'subsidy': .2}}], target_wards=['1'], rounds=1, seed=7)
+    result = run(config)
+    assert result['ward_impact_evidence_type'] == 'SIMULATION OUTPUT'
+    assert '1' in result['ward_impacts']
+    assert result['policy_bundle'] == ['public_subsidy']
