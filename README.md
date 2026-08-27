@@ -82,3 +82,7 @@ The OpenAI layer can only choose from PolicyForge’s supported policies and bou
 ## Chennai ward explorer
 
 `/map` displays official Greater Chennai Corporation 2025 ward-boundary geometry and administrative attributes through the GCC GIS FeatureServer. It is an observed administrative boundary layer, not a ward-level socioeconomic, behavioural, or simulation dataset. Clickable ward profiles state this provenance and boundary explicitly; no missing ward indicators are estimated.
+
+## Policy combinations and ward simulation
+
+The simulator supports a primary policy plus one companion policy. Each policy retains its own bounded parameter, and the combination is applied to the same 10,000-agent experiment. For the Chennai preset, a user can select a ward from `/map` and run a targeted scenario. Ward-effect overlays are **SIMULATION OUTPUT**, based on a transparent synthetic allocation of agents to official GCC ward geography; they are not observed ward outcomes or estimates of ward population, household conditions, or behaviour.
