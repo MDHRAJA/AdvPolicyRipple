@@ -45,7 +45,7 @@ export default function PlannerPage() {
         <div className="objective-list">{objectives.map(([id, label]) => <button key={id} className={`chip ${selected.includes(id) ? 'active' : ''}`} onClick={() => toggle(id)}>{label}</button>)}</div>
         <button className="btn primary planner-run" onClick={interpret} disabled={busy}>{busy ? 'INTERPRETING…' : 'INTERPRET POLICY →'}</button>
         {error && <div className="error-box">{error}</div>}
-        <p className="helper">The interpretation is transparent and rule-based in this version. Review every proposed setting before simulation.</p>
+        <p className="helper">PolicyForge uses OpenAI only when the backend enables it; otherwise it uses its local interpreter. Review every proposed setting before simulation.</p>
       </section>
       <section className="card p-6">
         <div className="label">02 · AI policy brief</div>
