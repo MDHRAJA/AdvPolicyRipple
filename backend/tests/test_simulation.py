@@ -81,3 +81,9 @@ def test_chennai_ward_impacts_and_policy_bundle():
     assert result['ward_impact_evidence_type'] == 'SIMULATION OUTPUT'
     assert '1' in result['ward_impacts']
     assert result['policy_bundle'] == ['public_subsidy']
+
+
+def test_ai_policy_plan_recognizes_chennai_ward_target():
+    plan = interpret('Chennai Ward 92 needs a fair water response', ['improve_access'])
+    assert plan['proposed_config']['population']['preset'] == 'chennai_census_2011'
+    assert plan['proposed_config']['target_wards'] == ['92']
