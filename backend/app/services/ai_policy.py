@@ -137,10 +137,8 @@ def _interpret_openai(prompt, objectives):
     )
     response = client.responses.create(
         model=model,
-        input=[
-            {'role': 'system', 'content': system},
-            {'role': 'user', 'content': f'Policy request: {prompt}\nSelected objectives: {objectives}'},
-        ],
+        instructions=system,
+        input=f'Policy request: {prompt}\nSelected objectives: {objectives}',
         text={'format': {'type': 'json_schema', 'name': 'policyforge_policy_intake', 'strict': True, 'schema': OPENAI_SCHEMA}},
     )
     proposal = json.loads(response.output_text)
