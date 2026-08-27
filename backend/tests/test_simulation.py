@@ -66,3 +66,9 @@ def test_openai_mode_without_key_falls_back_to_rules(monkeypatch):
     assert plan['interpretation_source'] == 'rule_based'
     assert plan['proposed_config']['policy_id'] == 'rent_zoning'
     assert plan['proposed_config']['policy_parameters']['cost_change'] == -.2
+
+
+def test_ward_service_metadata_is_not_simulation_data():
+    from app.services.wards import GCC_WARD_SERVICE, GCC_WARD_SOURCE
+    assert 'FeatureServer/2/query' in GCC_WARD_SERVICE
+    assert GCC_WARD_SOURCE.startswith('https://gisgcc.chennaicorporation.gov.in/')
