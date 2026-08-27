@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChennaiWards, WardProfile, api } from '@/lib/api';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChennaiWards, SimulationResult, WardProfile, api } from '@/lib/api';
 
 type Position = [number, number];
 type Feature = { properties: Record<string, unknown>; geometry: { type: string; coordinates: unknown } };
@@ -20,12 +21,20 @@ function rings(feature: Feature): Position[][] {
   return [];
 }
 
+function impactColor(change: number) { return change > .05 ? '#52d3b4' : change > 0 ? '#2e766f' : change > -.05 ? '#805c35' : '#b6495f'; }
+
+function formatImpact(value: number) { return (value >= 0 ? '+' : '') + (value * 100).toFixed(1) + ' pp'; }
+
 export default function WardMapPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [simulation, setSimulation] = useState<SimulationResult | null>(null);
   const [wards, setWards] = useState<ChennaiWards | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [profile, setProfile] = useState<WardProfile | null>(null);
   const [error, setError] = useState('');
 
+  useEffect(() => { const id = searchParams.get('id'); if (id) api.get(id).then((data) => setSimulation(data.result)).catch(() => setError('Could not load the ward simulation overlay.')); }, [searchParams]);
   useEffect(() => { api.chennaiWards().then(setWards).catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load the official ward layer.')); }, []);
   useEffect(() => { if (!selected) return; setProfile(null); api.wardProfile(selected).then(setProfile).catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load this ward profile.')); }, [selected]);
 
@@ -38,17 +47,17 @@ export default function WardMapPage() {
 
   return <main className="page-shell">
     <div className="page-heading"><div><div className="label">Observed geography</div><h1>Chennai ward explorer.</h1><p>Browse official Greater Chennai Corporation ward boundaries and administrative profiles. This first release deliberately does not turn city-wide context or synthetic simulation measures into ward-level observations.</p></div></div>
-    <div className="evidence-legend"><span className="tag observed">OBSERVED DATA · GCC GIS</span><span className="tag synthetic">NO SYNTHETIC WARD VALUES</span><span className="tag simulation">NO WARD SIMULATION YET</span></div>
+    <div className="evidence-legend"><span className="tag observed">OBSERVED DATA · GCC GIS</span><span className="tag synthetic">SYNTHETIC WARD ALLOCATION</span><span className="tag simulation">{simulation?.ward_impacts ? 'SIMULATION OUTPUT · ACCESS CHANGE' : 'NO WARD SIMULATION SELECTED'}</span></div>
     {error && <div className="error-box">{error}</div>}
     <div className="ward-layout">
       <section className="card ward-map-card">
         <div className="ward-map-title"><div><div className="label">Official 2025 ward layer</div><h2 className="section-title">Select a ward to inspect its profile</h2></div>{wards && <span>{wards.features.length} wards</span>}</div>
-        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const color = ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : 'ward-shape'} onClick={() => setSelected(ward)}><title>{'Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
+        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : 'ward-shape'} onClick={() => setSelected(ward)}><title>{'Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
         <p className="helper">Boundary geometry and administrative attributes: Greater Chennai Corporation GIS FeatureServer. Click any ward.</p>
       </section>
       <aside className="card ward-profile">
         <div className="label">Ward profile</div>
-        {!selected ? <div className="planner-empty"><span>⌖</span><h2>Select a ward.</h2><p>Its official administrative profile and provenance will appear here.</p></div> : !profile ? <div className="loading-card">{'Loading Ward ' + selected + '…'}</div> : <><h2 className="section-title">{'Ward ' + profile.ward}</h2><div className="profile-list"><div><span>Zone</span><b>{profile.zone || 'Not supplied'}</b></div><div><span>Region</span><b>{profile.region || 'Not supplied'}</b></div><div><span>Assembly constituency</span><b>{profile.assembly_constituency || 'Not supplied'}</b></div><div><span>Official boundary area</span><b>{profile.official_area_square_metres ? Number(profile.official_area_square_metres).toLocaleString() + ' m²' : 'Not supplied'}</b></div></div><div className="policy-note"><b>Observed scope</b><span>{profile.provenance}</span></div><div className="policy-note"><b>Data boundary</b><span>{profile.data_boundary}</span></div><a className="source-link" href={profile.source_url} target="_blank" rel="noreferrer">Open official GCC GIS source ↗</a></>}
+        {!selected ? <div className="planner-empty"><span>⌖</span><h2>Select a ward.</h2><p>Its official administrative profile and provenance will appear here.</p></div> : !profile ? <div className="loading-card">{'Loading Ward ' + selected + '…'}</div> : <><h2 className="section-title">{'Ward ' + profile.ward}</h2><div className="profile-list"><div><span>Zone</span><b>{profile.zone || 'Not supplied'}</b></div><div><span>Region</span><b>{profile.region || 'Not supplied'}</b></div><div><span>Assembly constituency</span><b>{profile.assembly_constituency || 'Not supplied'}</b></div><div><span>Official boundary area</span><b>{profile.official_area_square_metres ? Number(profile.official_area_square_metres).toLocaleString() + ' m²' : 'Not supplied'}</b></div></div><div className="policy-note"><b>Observed scope</b><span>{profile.provenance}</span></div><div className="policy-note"><b>Data boundary</b><span>{profile.data_boundary}</span></div><a className="source-link" href={profile.source_url} target="_blank" rel="noreferrer">Open official GCC GIS source ↗</a>{simulation?.ward_impacts?.[profile.ward] && <div className="policy-note"><b>SIMULATION OUTPUT · Ward effect</b><span>Access {formatImpact(simulation.ward_impacts[profile.ward].change.resource_access)} · stress {formatImpact(simulation.ward_impacts[profile.ward].change.stress)} · trust {formatImpact(simulation.ward_impacts[profile.ward].change.trust)}.</span><span>These effects use synthetic agent-to-ward allocation, not observed ward outcomes.</span></div>}<button className="btn primary planner-run" onClick={() => router.push('/simulate?ward=' + profile.ward)}>Model a policy for this ward →</button></>}
       </aside>
     </div>
   </main>;
