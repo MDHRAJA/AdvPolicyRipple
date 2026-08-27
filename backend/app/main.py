@@ -5,7 +5,7 @@ from app.core.models import SimulationCreate,SimulationConfig,CompareRequest,Cal
 from app.db.store import init_db,create,get,save
 from app.services.observed_data import chennai_calibration_anchor,chennai_metrics,chennai_sources,chennai_summary
 from app.services.policies import list_policies
-from app.services.ai_policy import interpret,recommend
+from app.services.ai_policy import interpret,recommend,interpreter_status
 from app.services.simulation import PRESETS,run
 app=FastAPI(title='PolicyForge API',version='1.3.0',description='Synthetic policy simulation and auditable observed-data provenance')
 app.add_middleware(CORSMiddleware,allow_origins=['http://localhost:3000','http://127.0.0.1:3000'],allow_methods=['*'],allow_headers=['*'])
@@ -60,6 +60,9 @@ def recommendation(payload:dict):
  for name,m in payload.get('results',{}).items():
   parts={'equality':1-m['inequality'],'stability':1-m['stress'],'resource_availability':m['resource_access'],'compliance':m['compliance'],'institutional_trust':m['trust']}; rows.append({'policy':name,'score':round(sum(parts[k]*weights.get(k,0) for k in parts),4),'components':parts,'weights':weights})
  return sorted(rows,key=lambda x:x['score'],reverse=True)
+
+@app.get('/api/ai/status')
+def ai_status(): return interpreter_status()
 
 @app.post('/api/ai/policy-plan')
 def ai_policy_plan(req: PolicyPlanRequest):
