@@ -23,7 +23,7 @@ export default function PlannerPage() {
   function toggle(id: string) { setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
   async function interpret() {
     setBusy(true); setError('');
-    try { setPlan(await api.planPolicy({ prompt, objectives: selected, size: 500, rounds: 20, seed: 42 })); }
+    try { setPlan(await api.planPolicy({ prompt, objectives: selected, size: 10000, rounds: 20, seed: 42 })); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not interpret this policy request.'); }
     finally { setBusy(false); }
   }
@@ -50,10 +50,10 @@ export default function PlannerPage() {
         {!plan ? <div className="planner-empty"><span>✦</span><h2>Waiting for a policy question.</h2><p>Describe a local problem, choose priorities, and PolicyForge will create a simulation-ready proposal.</p></div> : <>
           <h2 className="section-title">{plan.matched_policy.name}</h2>
           <p className="helper">{plan.interpretation}</p>
-          <div className="plan-summary"><div><span>Population</span><b>{plan.proposed_config.population.preset.replaceAll('_', ' ')}</b></div><div><span>Agents</span><b>{plan.proposed_config.population.size.toLocaleString()}</b></div><div><span>Rounds</span><b>{plan.proposed_config.rounds}</b></div></div>
-          <div className="policy-note"><b>Recommended option · {plan.recommendation.recommended.name}</b><span>Objective score: {plan.recommendation.recommended.score.toFixed(2)}. This ranks synthetic simulation outputs against your chosen objectives.</span></div>
+          <div className="plan-summary"><div><span>Population basis</span><b>{plan.policy_detail.population_basis}</b></div><div><span>Agents</span><b>10,000 fixed</b></div><div><span>Rounds</span><b>{plan.proposed_config.rounds}</b></div></div><div className="policy-note"><b>Proposed policy · {plan.matched_policy.name}</b><span>{plan.matched_policy.description} Parameter: {plan.policy_detail.parameter.replaceAll('_', ' ')} at {plan.policy_detail.value_percent}%.</span></div><div className="policy-note"><b>Why this was selected</b><span>Objectives: {plan.objectives.map((item) => item.replaceAll('_', ' ')).join(', ')}. {plan.policy_detail.run_design}</span></div>
+          <div className="policy-note"><b>Recommended option · {plan.recommendation.recommended.name}</b><span>{plan.recommendation.explanation} Objective score: {(plan.recommendation.recommended.score * 100).toFixed(1)}%.</span></div>
           <button className="btn primary planner-run" onClick={apply}>REVIEW IN SIMULATOR →</button>
-          <p className="helper">{plan.recommendation.boundary}</p>
+          <div className="policy-note"><b>Alternative options</b><span>{plan.recommendation.alternatives.map((item) => item.name).join(' · ')}</span></div><p className="helper">{plan.recommendation.boundary}</p>
         </>}
       </section>
     </div>
