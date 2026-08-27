@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, PolicyPlan } from '@/lib/api';
+import { AIInterpreterStatus, api, PolicyPlan } from '@/lib/api';
 
 const objectives = [
   ['improve_access', 'Improve access'],
@@ -21,6 +21,9 @@ export default function PlannerPage() {
   const [plan, setPlan] = useState<PolicyPlan | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [interpreter, setInterpreter] = useState<AIInterpreterStatus | null>(null);
+
+  useEffect(() => { api.aiStatus().then(setInterpreter).catch(() => setInterpreter(null)); }, []);
 
   function toggle(id: string) { setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
   async function interpret() {
@@ -45,7 +48,7 @@ export default function PlannerPage() {
         <div className="objective-list">{objectives.map(([id, label]) => <button key={id} className={`chip ${selected.includes(id) ? 'active' : ''}`} onClick={() => toggle(id)}>{label}</button>)}</div>
         <button className="btn primary planner-run" onClick={interpret} disabled={busy}>{busy ? 'INTERPRETING…' : 'INTERPRET POLICY →'}</button>
         {error && <div className="error-box">{error}</div>}
-        <p className="helper">PolicyForge uses OpenAI only when the backend enables it; otherwise it uses its local interpreter. Review every proposed setting before simulation.</p>
+        <p className="helper"><b>Interpreter: {interpreter?.display || 'Checking backend…'}</b>{interpreter ? ` · ${interpreter.fallback}` : ''}</p><p className="helper">Review every proposed setting before simulation.</p>
       </section>
       <section className="card p-6">
         <div className="label">02 · AI policy brief</div>
