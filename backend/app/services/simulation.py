@@ -33,7 +33,7 @@ def population(config, seed):
             'id': index, 'income_band': income, 'age_group': rng.choice(['18-29', '30-44', '45-64', '65+']),
             'neighborhood': rng.randrange(config.neighborhoods), 'resource_access': resource,
             'trust': rng.uniform(*preset['trust']), 'risk': rng.random(), 'cooperation': rng.betavariate(3, 2),
-            'support': .5, 'satisfaction': .55, 'stress': stress, 'relocated': False, 'social_signal': 0,
+            'support': .5, 'satisfaction': .55, 'stress': stress, 'relocated': False, 'social_signal': 0, 'ward': str(rng.randint(1, 200)) if config.preset == 'chennai_census_2011' else None,
         })
     return agents
 
@@ -75,6 +75,39 @@ def income_group_impacts(baseline, final):
         }
         for income_band in baseline
     }
+
+
+def ward_metrics(agents):
+    groups = {}
+    for agent in agents:
+        if agent['ward'] is not None:
+            groups.setdefault(agent['ward'], []).append(agent)
+    return {
+        ward: {
+            'resource_access': statistics.fmean(agent['resource_access'] for agent in members),
+            'stress': statistics.fmean(agent['stress'] for agent in members),
+            'trust': statistics.fmean(agent['trust'] for agent in members),
+            'compliance': statistics.fmean((1 - agent['risk'] * .35) if agent['support'] >= .35 else .35 for agent in members),
+            'synthetic_agents': len(members),
+        }
+        for ward, members in groups.items()
+    }
+
+
+def ward_impacts(baseline, final):
+    return {
+        ward: {
+            'baseline': baseline[ward],
+            'final': final[ward],
+            'change': {metric: round(final[ward][metric] - baseline[ward][metric], 4) for metric in ('resource_access', 'stress', 'trust', 'compliance')},
+        }
+        for ward in baseline
+    }
+
+
+def active_policies(config):
+    selections = config.policy_bundle or [{'policy_id': config.policy_id, 'policy_parameters': config.policy_parameters}]
+    return [get_policy(selection['policy_id'] if isinstance(selection, dict) else selection.policy_id, selection['policy_parameters'] if isinstance(selection, dict) else selection.policy_parameters) for selection in selections]
 
 def apply_policy(agent, policy):
     parameters = policy['parameters']
@@ -120,13 +153,15 @@ def run(config):
     agents = population(config.population, config.seed)
     baseline = metrics(agents)
     baseline_income_groups = income_group_metrics(agents)
-    policy = get_policy(config.policy_id, config.policy_parameters)
+    baseline_wards = ward_metrics(agents) if config.population.preset == 'chennai_census_2011' else None
+    policies = active_policies(config)
+    target_wards = set(config.target_wards)
     timeline = []
 
     for round_number in range(1, config.rounds + 1):
         for agent in agents:
             agent['social_signal'] = 0
-            fairness = apply_policy(agent, policy)
+            fairness = sum(apply_policy(agent, policy) for policy in policies) if not target_wards or agent['ward'] in target_wards else 0
             agent['support'] = clip(agent['support'] + (agent['satisfaction'] - .5) * .05 + fairness * .045)
             agent['trust'] = clip(agent['trust'] + fairness * .035 + (agent['satisfaction'] - .5) * .012 - (agent['stress'] - .5) * .010)
 
@@ -161,16 +196,20 @@ def run(config):
 
     final = metrics(agents)
     final_income_groups = income_group_metrics(agents)
+    final_wards = ward_metrics(agents) if baseline_wards is not None else None
     weights = {'inequality': .22, 'stress': .22, 'relocation': .18, 'trust': .18, 'compliance': .20}
     score = max(0, min(100, 50 + 100 * sum(weights[key] * ((-1 if key == 'compliance' else 1) * (final[key] - baseline[key])) for key in weights)))
     examples = sorted(agents, key=lambda agent: agent['stress'], reverse=True)
     result = {
         'baseline': baseline, 'final': final, 'timeline': timeline,
-        'income_group_impacts': income_group_impacts(baseline_income_groups, final_income_groups), 'unintended_consequence_score': round(score, 2),
+        'income_group_impacts': income_group_impacts(baseline_income_groups, final_income_groups), 'policy_bundle': [policy['id'] for policy in policies], 'target_wards': sorted(target_wards), 'unintended_consequence_score': round(score, 2),
         'agent_examples': [{'profile': agent['income_band'] + ' / ' + agent['age_group'], 'neighborhood': agent['neighborhood'], 'resource_access': round(agent['resource_access'], 3), 'stress': round(agent['stress'], 3), 'trust': round(agent['trust'], 3), 'support': round(agent['support'], 3)} for agent in examples[:3]],
         'assumptions': ['Population attributes are SYNTHETIC DEMO DATA.', 'Trust and cooperation are synthetic behavioural state variables that respond to policy experience and local interactions.', 'Results are simulation outputs, not predictions of actual human behavior.'],
         'evidence_labels': {'baseline': 'SIMULATION RESULTS', 'final': 'SIMULATION RESULTS', 'assumptions': 'SIMULATION ASSUMPTIONS'},
     }
     if config.population.preset == 'chennai_census_2011':
         result['observed_data_anchor'] = chennai_calibration_anchor(config.population.size)
+        result['ward_impacts'] = ward_impacts(baseline_wards, final_wards)
+        result['ward_impact_evidence_type'] = 'SIMULATION OUTPUT'
+        result['assumptions'].append('Ward assignment and ward-level policy effects are synthetic spatial allocation outputs; official GCC boundaries are used only for geography.')
     return result
