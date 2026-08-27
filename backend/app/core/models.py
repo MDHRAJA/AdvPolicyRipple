@@ -22,3 +22,10 @@ class CalibrationRequest(BaseModel):
     observed: Dict[str,float]
     parameters: Dict[str,float] = Field(default_factory=dict)
     learning_rate: float = Field(default=.15,gt=0,le=1)
+
+class PolicyPlanRequest(BaseModel):
+    prompt: str = Field(min_length=5, max_length=2000)
+    objectives: List[str] = Field(default_factory=list)
+    size: int = Field(default=500, ge=100, le=10000)
+    rounds: int = Field(default=20, ge=1, le=100)
+    seed: int = 42
