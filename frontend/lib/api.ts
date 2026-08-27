@@ -49,10 +49,14 @@ export type ChennaiAnchor = {
   synthetic_only_variables: string[];
 };
 
+export type PolicySelection = { policy_id: string; policy_parameters: Record<string, number> };
+
 export type SimulationConfig = {
   population: { preset: string; size: number; neighborhoods: number };
   policy_id: string;
   policy_parameters: Record<string, number>;
+  policy_bundle?: PolicySelection[];
+  target_wards?: string[];
   rounds: number;
   seed: number;
 };
@@ -89,6 +93,8 @@ export type AIInterpreterStatus = { configured: 'openai' | 'rule_based'; display
 
 export type PolicyPlan = { interpretation: string; interpretation_source: 'openai' | 'rule_based'; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; policy_detail: { parameter: string; value_percent: number; population_basis: string }; recommendation: { recommended: { policy_id: string; name: string; score: number; preview: Metrics; income_groups: Record<'low' | 'middle' | 'high', IncomeGroupImpact>; implementation: { parameter: string; direction: string; value_percent: number; instruction: string } }; alternatives: Array<{ policy_id: string; name: string; score: number; preview: Metrics }>; explanation: string; boundary: string } };
 
+export type WardImpact = { baseline: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> & { synthetic_agents: number }; final: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> & { synthetic_agents: number }; change: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> };
+
 export type SimulationResult = {
   simulation_id?: string;
   baseline: Metrics;
@@ -97,6 +103,10 @@ export type SimulationResult = {
   unintended_consequence_score: number;
   observed_data_anchor?: ChennaiAnchor;
   income_group_impacts?: Record<'low' | 'middle' | 'high', IncomeGroupImpact>;
+  ward_impacts?: Record<string, WardImpact>;
+  ward_impact_evidence_type?: 'SIMULATION OUTPUT';
+  policy_bundle?: string[];
+  target_wards?: string[];
   [key: string]: unknown;
 };
 
