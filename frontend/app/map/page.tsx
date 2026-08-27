@@ -35,6 +35,12 @@ export default function WardMapPage() {
   const [profile, setProfile] = useState<WardProfile | null>(null);
   const [error, setError] = useState('');
 
+  function toggleTargetWard(ward: string) {
+    const wasTargeted = targetWards.includes(ward);
+    setSelected(wasTargeted ? null : ward);
+    setTargetWards((current) => wasTargeted ? current.filter((item) => item !== ward) : [...current, ward].sort((first, second) => Number(first) - Number(second)));
+  }
+
   useEffect(() => { const id = searchParams.get('id'); if (id) api.get(id).then((data) => setSimulation(data.result)).catch(() => setError('Could not load the ward simulation overlay.')); const wards = searchParams.get('wards'); if (wards) setTargetWards(wards.split(',').filter((ward) => /^\d{1,3}$/.test(ward))); }, [searchParams]);
   useEffect(() => { api.chennaiWards().then(setWards).catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load the official ward layer.')); }, []);
   useEffect(() => { if (!selected) return; setProfile(null); api.wardProfile(selected).then(setProfile).catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load this ward profile.')); }, [selected]);
@@ -54,7 +60,7 @@ export default function WardMapPage() {
     <div className="ward-layout">
       <section className="card ward-map-card">
         <div className="ward-map-title"><div><div className="label">Official 2025 ward layer</div><h2 className="section-title">Select a ward to inspect its profile</h2></div>{wards && <span>{wards.features.length} wards</span>}</div>
-        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => { setSelected(ward); setTargetWards((current) => current.includes(ward) ? current.filter((item) => item !== ward) : [...current, ward].sort((first, second) => Number(first) - Number(second))); }}><title>{'Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
+        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => toggleTargetWard(ward)}><title>{'Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
         <p className="helper">Boundary geometry and administrative attributes: Greater Chennai Corporation GIS FeatureServer. Click any ward.</p>
       </section>
       <aside className="card ward-profile">
