@@ -34,7 +34,12 @@ app.add_middleware(
 
 # The Vercel deployment is stateless: browser session storage holds each result.
 # Local development can retain the original SQLite-backed flow.
-SESSION_ONLY = os.getenv("POLICYFORGE_SESSION_ONLY", "").lower() in {"1", "true", "yes"}
+# Vercel functions have an ephemeral, read-only application filesystem.
+# They always use browser-session results; local runs retain SQLite unless opted out.
+SESSION_ONLY = (
+    os.getenv("POLICYFORGE_SESSION_ONLY", "").lower() in {"1", "true", "yes"}
+    or bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+)
 if not SESSION_ONLY:
     init_db()
 
