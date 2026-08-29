@@ -111,9 +111,11 @@ export type SimulationResult = {
 };
 
 // Undefined means local development; /backend is used by the Vercel Services deployment.
-const API = process.env.NEXT_PUBLIC_API_URL === undefined
-  ? 'http://localhost:8000'
-  : process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+const configuredApi = process.env.NEXT_PUBLIC_API_URL;
+const isLocalBrowser = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API = configuredApi !== undefined
+  ? configuredApi.replace(/\/$/, '')
+  : isLocalBrowser ? 'http://localhost:8000' : '';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
