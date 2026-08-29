@@ -20,8 +20,8 @@ In Vercel, open **Storage** or the Marketplace and create a Neon Postgres databa
 3. In **Environment Variables**, add:
    - `DATABASE_URL`: the Neon connection string.
    - `CORS_ORIGINS`: the private web deployment URL, for example `https://policyforge-web.vercel.app`.
-   - `POLICYFORGE_AI_MODE`: `rule_based`, or `openai` if AI interpretation is wanted.
-   - `OPENAI_API_KEY` and `OPENAI_MODEL` only if using the OpenAI option.
+   - `POLICYFORGE_AI_MODE`: `rule_based`, or `gemini` if AI interpretation is wanted.
+   - `GEMINI_API_KEY` and `GEMINI_MODEL` only if using the Gemini option.
 4. Deploy. The health check is available at `/health`.
 
 The database table is created automatically on first API start.
@@ -33,7 +33,7 @@ The database table is created automatically on first API start.
 3. Add `NEXT_PUBLIC_API_URL` with the API project’s complete HTTPS URL, without a trailing slash.
 4. Deploy.
 
-`NEXT_PUBLIC_API_URL` is safe to expose because it contains only the API address. Never put `OPENAI_API_KEY` in the web project.
+`NEXT_PUBLIC_API_URL` is safe to expose because it contains only the API address. Never put `GEMINI_API_KEY` in the web project.
 
 ## 4. Make both deployments private
 
