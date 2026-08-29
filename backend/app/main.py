@@ -216,7 +216,17 @@ def ai_status():
 
 @app.post("/api/ai/policy-plan")
 def ai_policy_plan(req: PolicyPlanRequest):
-    plan = interpret(req.prompt, req.objectives, req.size, req.rounds, req.seed)
-    config = SimulationConfig.model_validate(plan["proposed_config"])
-    plan["recommendation"] = recommend(config, plan["objectives"])
-    return plan
+    """Return the validated language interpretation immediately.
+
+    The full 10,000-agent policy-combination comparison is requested separately
+    by the browser so the user can review the proposed policy without waiting.
+    """
+    return interpret(req.prompt, req.objectives, req.size, req.rounds, req.seed)
+
+
+@app.post("/api/ai/recommendation")
+def ai_recommendation(payload: dict):
+    """Run the full recommendation comparison after the interpretation is shown."""
+    config = SimulationConfig.model_validate(payload.get("config", {}))
+    objectives = payload.get("objectives", [])
+    return recommend(config, objectives)
