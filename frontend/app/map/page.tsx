@@ -25,7 +25,7 @@ function impactColor(change: number) { return change > .05 ? '#52d3b4' : change 
 
 function formatImpact(value: number) { return (value >= 0 ? '+' : '') + (value * 100).toFixed(1) + ' pp'; }
 
-export default function WardMapPage() {
+function WardMapPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
@@ -76,4 +76,9 @@ export default function WardMapPage() {
       </aside>
     </div>
   </main>;
+}
+
+
+export default function WardMapPage() {
+  return <Suspense fallback={<main className="page-shell"><div className="loading-card">Loading Chennai ward explorer…</div></main>}><WardMapPageContent /></Suspense>;
 }
