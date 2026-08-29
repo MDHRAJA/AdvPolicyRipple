@@ -29,6 +29,13 @@ POLICIES = {
         'policy_type': 'subsidy',
         'parameters': {'subsidy': .20},
     },
+    'energy_service_restoration': {
+        'id': 'energy_service_restoration',
+        'name': 'Energy Service Restoration',
+        'description': 'Restore household electricity availability after an outage or restriction period.',
+        'policy_type': 'energy_restoration',
+        'parameters': {'restoration': .15},
+    },
     'energy_rationing': {
         'id': 'energy_rationing',
         'name': 'Energy Rationing',
