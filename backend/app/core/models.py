@@ -35,3 +35,7 @@ class PolicyPlanRequest(BaseModel):
     size: int = Field(default=10000, ge=10000, le=10000)
     rounds: int = Field(default=20, ge=1, le=100)
     seed: int = 42
+
+
+class AccessUnlockRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=512)
