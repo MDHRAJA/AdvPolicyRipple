@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AIInterpreterStatus, api, PolicyPlan } from '@/lib/api';
 
@@ -14,7 +14,7 @@ const objectives = [
 
 function percentagePointChange(value: number) { return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)} percentage points`; }
 
-export default function PlannerPage() {
+function PlannerPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [prompt, setPrompt] = useState('Water shortages are affecting low-income Chennai households. Explore a fair 25% response.');
@@ -72,4 +72,9 @@ export default function PlannerPage() {
       </section>
     </div>
   </main>;
+}
+
+
+export default function PlannerPage() {
+  return <Suspense fallback={<main className="page-shell"><div className="loading-card">Loading AI policy planner…</div></main>}><PlannerPageContent /></Suspense>;
 }
