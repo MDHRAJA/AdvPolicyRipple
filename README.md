@@ -1,8 +1,8 @@
-# POLICYRIPPLE
+# PolicyForge
 
 > **Test policies before they reach people.**
 
-POLICYRIPPLE is an AI-assisted policy simulation sandbox. It creates a
+PolicyForge is an AI-assisted policy simulation sandbox. It creates a
 **synthetic** population, applies a configurable policy shock, simulates
 bounded-rational agents and reports possible emergent effects. It is decision
 support, not a prediction of real human behavior.
@@ -86,3 +86,19 @@ The OpenAI layer can only choose from PolicyForge’s supported policies and bou
 ## Policy combinations and ward simulation
 
 The simulator supports a primary policy plus one companion policy. Each policy retains its own bounded parameter, and the combination is applied to the same 10,000-agent experiment. For the Chennai preset, a user can select a ward from `/map` and run a targeted scenario. Ward-effect overlays are **SIMULATION OUTPUT**, based on a transparent synthetic allocation of agents to official GCC ward geography; they are not observed ward outcomes or estimates of ward population, household conditions, or behaviour.
+
+
+## Private Vercel deployment
+
+PolicyForge is prepared for a private two-project Vercel deployment:
+
+- **Web:** set Vercel Root Directory to `frontend`.
+- **API:** set Vercel Root Directory to `backend`; it uses `api/index.py` as the FastAPI serverless entry point.
+- Create a Neon Postgres database through Vercel, then set its connection string as `DATABASE_URL` in the API project.
+- Set `NEXT_PUBLIC_API_URL` in the web project to the API deployment's HTTPS URL.
+- Set `CORS_ORIGINS` in the API project to the web deployment URL.
+- Enable **Vercel Authentication → All Deployments** for both projects to keep production and previews private.
+
+The OpenAI key belongs only in the API project's environment variables. It must never be added to the frontend project or committed to Git.
+
+See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) for the complete deployment checklist.
