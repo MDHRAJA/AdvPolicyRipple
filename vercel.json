@@ -3,14 +3,12 @@
   "services": {
     "frontend": {
       "root": "frontend",
-      "framework": "nextjs",
-      "routePrefix": "/"
+      "framework": "nextjs"
     },
     "backend": {
       "root": "backend",
       "entrypoint": "api/index.py",
-      "framework": "fastapi",
-      "routePrefix": "/backend"
+      "framework": "fastapi"
     }
   }
 }
