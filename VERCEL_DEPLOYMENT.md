@@ -40,11 +40,11 @@ The database table is created automatically on first API start.
 For **both** Vercel projects:
 
 1. Open **Settings → Deployment Protection**.
-2. Enable **Vercel Authentication**.
+2. Enable **Password Protection**.
 3. Apply it to **All Deployments**, including Production.
-4. Ensure only the intended Vercel team members have access.
+4. Set one strong shared password and give it only to intended teammates.
 
-Do this before sharing the deployment URL. Anyone outside the team should be denied before the web page or API can load.
+Do this before sharing the deployment URL. Teammates can use the site from any computer after entering the password; the password-protection feature must be available on the selected Vercel plan.
 
 ## Local development
 
