@@ -33,7 +33,6 @@ OBJECTIVES = {
 VALID_OBJECTIVES = set(OBJECTIVES)
 GEMINI_SCHEMA = {
     'type': 'object',
-    'additionalProperties': False,
     'properties': {
         'policy_id': {'type': 'string', 'enum': list(POLICIES)},
         'percentage': {'type': 'number', 'minimum': 0, 'maximum': 80},
