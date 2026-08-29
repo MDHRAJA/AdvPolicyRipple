@@ -67,17 +67,17 @@ npm run build
 - `POST /api/calibration/run`
 - `POST /api/assessment`
 
-## Optional OpenAI policy interpretation
+## Optional Gemini policy interpretation
 
-PolicyForge runs without an external AI service by default. To opt into OpenAI-assisted interpretation, set these **backend-only** environment variables before starting the API:
+PolicyForge runs without an external AI service by default. To opt into Gemini-assisted interpretation, set these **backend-only** environment variables before starting the API:
 
 ```powershell
-$env:POLICYFORGE_AI_MODE = 'openai'
-$env:OPENAI_API_KEY = 'your_api_key_here'
-$env:OPENAI_MODEL = 'gpt-4.1-mini'
+$env:POLICYFORGE_AI_MODE = 'gemini'
+$env:GEMINI_API_KEY = 'your_api_key_here'
+$env:GEMINI_MODEL = 'gemini-3.7-flash'
 ```
 
-The OpenAI layer can only choose from PolicyForge’s supported policies and bounded parameters; the backend validates its JSON output before running a simulation. It never supplies simulation metrics. To undo or disable the integration, remove `OPENAI_API_KEY` or set `POLICYFORGE_AI_MODE = 'rule_based'`; the built-in interpreter remains the default fallback, including if an OpenAI request fails.
+The Gemini layer can only choose from PolicyForge’s supported policies and bounded parameters; the backend validates its JSON output before running a simulation. It never supplies simulation metrics. To undo or disable the integration, remove `GEMINI_API_KEY` or set `POLICYFORGE_AI_MODE = 'rule_based'`; the built-in interpreter remains the default fallback, including if an Gemini request fails.
 
 ## Chennai ward explorer
 
@@ -99,6 +99,6 @@ PolicyForge is prepared for a private two-project Vercel deployment:
 - Set `CORS_ORIGINS` in the API project to the web deployment URL.
 - Enable **Vercel Authentication → All Deployments** for both projects to keep production and previews private.
 
-The OpenAI key belongs only in the API project's environment variables. It must never be added to the frontend project or committed to Git.
+The Gemini key belongs only in the API project's environment variables. It must never be added to the frontend project or committed to Git.
 
 See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) for the complete deployment checklist.
