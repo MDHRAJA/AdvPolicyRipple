@@ -57,6 +57,37 @@ def _percentage(text, default):
     return max(0, min(.8, float(match.group(1)) / 100)) if match else default
 
 
+def _water_restoration_context(text):
+    """Distinguish restoring water availability from imposing a new water cut."""
+    has_water = 'water' in text
+    restoration = bool(re.search(r'\b(increas(?:e|ing)|restore|restor(?:e|ing)|raise)\b[^.]{0,60}\b(?:available\s+)?water', text))
+    if not (has_water and restoration):
+        return None
+    change = _percentage(text, 0)
+    current = re.search(r'\b(?:current|existing|present)\s+(?:water\s+)?(?:cut|ration(?:ing)?)\s*(?:is|of|at)?\s*(\d{1,2}(?:\.\d+)?)\s*%', text)
+    if not current:
+        return {
+            'target_cut': None,
+            'summary': 'The request increases water availability, but does not state the current water-cut baseline. PolicyForge will not convert that into a rationing percentage without a baseline.',
+        }
+    existing_cut = max(0, min(.8, float(current.group(1)) / 100))
+    target_cut = max(0, existing_cut - change)
+    return {
+        'target_cut': target_cut,
+        'summary': f'Water availability is restored by {change * 100:.1f} percentage points: the stated {existing_cut * 100:.1f}% water cut becomes a {target_cut * 100:.1f}% target cut.',
+    }
+
+
+def _fiscal_consideration(text):
+    if not any(term in text for term in ('budget', 'fund', 'funds', 'money', 'cost', 'afford')):
+        return None
+    return (
+        'Budget preservation is recognised as a constraint. PolicyForge will not silently invent a reduction to another subsidy: '
+        'the request does not identify the programme, current allocation, protected groups, or amount that can be reallocated. '
+        'Specify that trade-off explicitly before treating it as a simulation input.'
+    )
+
+
 def _implementation(policy_id, parameter, value):
     """Give each policy a direct, human-readable implementation description."""
     percent = round(abs(value) * 100, 1)
@@ -73,7 +104,7 @@ def _implementation(policy_id, parameter, value):
         return {'parameter': 'public transport subsidy', 'direction': 'increase', 'value_percent': percent, 'instruction': f'Increase the public transport subsidy by {percent}%.'}
     return {'parameter': parameter.replace('_', ' '), 'direction': 'increase', 'value_percent': percent, 'instruction': f'Increase {parameter.replace("_", " ")} by {percent}%.'}
 
-def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, source, summary):
+def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, source, summary, fiscal_consideration=None):
     if policy_id not in POLICIES:
         raise ValueError('Unsupported policy selected by interpreter.')
     policy = get_policy(policy_id)
@@ -108,6 +139,7 @@ def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, so
         'objectives': normalized_objectives,
         'proposed_config': config.model_dump(),
         'matched_policy': policy,
+        'fiscal_consideration': fiscal_consideration,
         'policy_detail': {
             'parameter': parameter_name,
             'value_percent': round(abs(value) * 100, 1),
@@ -126,10 +158,13 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     policy = get_policy(selected)
     parameter_name, default = next(iter(policy['parameters'].items()))
     value = _percentage(text, default)
+    water_context = _water_restoration_context(text)
+    if selected == 'water_rationing' and water_context and water_context['target_cut'] is not None:
+        value = water_context['target_cut']
     direction = 'reduce' if parameter_name == 'cost_change' and any(word in text for word in ('reduce', 'lower', 'affordable')) else 'increase'
     inferred_objectives = objectives or [name for name, words in OBJECTIVES.items() if any(word in text for word in words)]
-    summary = f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
-    plan = _build_plan(selected, value * 100, direction, inferred_objectives, prompt, 'rule_based', summary)
+    summary = water_context['summary'] if selected == 'water_rationing' and water_context else f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
+    plan = _build_plan(selected, value * 100, direction, inferred_objectives, prompt, 'rule_based', summary, _fiscal_consideration(text))
     plan['proposed_config']['rounds'] = rounds
     plan['proposed_config']['seed'] = seed
     return plan
@@ -144,6 +179,7 @@ def _interpret_gemini(prompt, objectives):
         f"Supported policies: {json.dumps({key: value['name'] for key, value in POLICIES.items()})}. "
         f"Allowed objectives: {sorted(VALID_OBJECTIVES)}. "
         "Use housing_direction=reduce only when the user wants housing costs reduced; otherwise use increase. "
+        "A stated increase in water availability is not a new water cut. If the request gives a current water cut and an availability restoration, return the remaining target cut after subtracting the restoration. "
         "The summary must state the interpretation, not a prediction or recommendation."
     )
     response = httpx.post(
@@ -175,14 +211,21 @@ def _interpret_gemini(prompt, objectives):
     if not output:
         raise ValueError("Gemini returned no structured policy interpretation.")
     proposal = json.loads(output)
+    water_context = _water_restoration_context(prompt)
+    percentage = proposal["percentage"]
+    summary = proposal["summary"]
+    if proposal["policy_id"] == 'water_rationing' and water_context and water_context['target_cut'] is not None:
+        percentage = water_context['target_cut'] * 100
+        summary = water_context['summary']
     return _build_plan(
         proposal["policy_id"],
-        proposal["percentage"],
+        percentage,
         proposal["housing_direction"],
         objectives or proposal["objectives"],
         prompt,
         "gemini",
-        proposal["summary"],
+        summary,
+        _fiscal_consideration(prompt),
     )
 
 
