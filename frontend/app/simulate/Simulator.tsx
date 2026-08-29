@@ -95,11 +95,13 @@ export default function Simulator() {
   async function runSimulation() {
     setBusy(true); setError('');
     try {
-      const created = await api.create(config);
-      setSimulationId(created.simulation_id);
-      const output = await api.run(created.simulation_id);
+      const output = await api.runSession(config);
+      setSimulationId('session');
       setResult(output);
-      if (typeof window !== 'undefined') window.sessionStorage.setItem('policyforge:lastSimulationId', created.simulation_id);
+      if (typeof window !== 'undefined') window.sessionStorage.setItem(
+        'policyforge:lastSimulation',
+        JSON.stringify({ config, result: output }),
+      );
     } catch (e) { setError(e instanceof Error ? e.message : 'Simulation failed.'); }
     finally { setBusy(false); }
   }
@@ -107,7 +109,7 @@ export default function Simulator() {
   if (loadingCatalogs) return <main className="page-shell"><div className="loading-card">Loading simulation workspace…</div></main>;
 
   return <main className="page-shell">
-    <div className="page-heading"><div><div className="label">Simulation workspace</div><h1>Design a policy experiment.</h1><p>Change one policy, run a seeded synthetic society, and inspect the second-order effects.</p></div>{simulationId && <button className="btn" onClick={() => router.push(`/results?id=${simulationId}`)}>Open full results →</button>}</div>
+    <div className="page-heading"><div><div className="label">Simulation workspace</div><h1>Design a policy experiment.</h1><p>Change one policy, run a seeded synthetic society, and inspect the second-order effects.</p></div>{simulationId && <button className="btn" onClick={() => router.push('/results')}>Open full results →</button>}</div>
     <div className="workspace-grid">
       <section className="card p-6">
         <div className="label">01 · Population</div><h2 className="section-title">Choose your agent sample</h2>
