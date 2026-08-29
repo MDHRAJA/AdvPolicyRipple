@@ -62,8 +62,7 @@ npm run build
 - `GET /api/observed/chennai`
 - `GET /api/observed/chennai/summary`
 - `GET /api/observed/chennai/calibration?size=500`
-- `POST /api/simulations`
-- `POST /api/simulations/{id}/run`
+- `POST /api/simulations/run` (stateless browser-session run)
 - `POST /api/calibration/run`
 - `POST /api/assessment`
 
@@ -90,15 +89,8 @@ The simulator supports a primary policy plus one companion policy. Each policy r
 
 ## Private Vercel deployment
 
-PolicyForge is prepared for a private two-project Vercel deployment:
+PolicyForge deploys as one private Vercel Services project. It uses stateless simulation runs, keeping results only in the current browser session—no Neon or other database is needed.
 
-- **Web:** set Vercel Root Directory to `frontend`.
-- **API:** set Vercel Root Directory to `backend`; it uses `api/index.py` as the FastAPI serverless entry point.
-- Create a Neon Postgres database through Vercel, then set its connection string as `DATABASE_URL` in the API project.
-- Set `NEXT_PUBLIC_API_URL` in the web project to the API deployment's HTTPS URL.
-- Set `CORS_ORIGINS` in the API project to the web deployment URL.
-- Enable **Vercel Authentication → All Deployments** for both projects to keep production and previews private.
+Set `POLICYFORGE_SESSION_ONLY=true`, `POLICYFORGE_AI_MODE=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.7-flash`, and `NEXT_PUBLIC_API_URL=/backend` in Vercel. Enable password protection for the project.
 
-The Gemini key belongs only in the API project's environment variables. It must never be added to the frontend project or committed to Git.
-
-See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) for the complete deployment checklist.
+See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) for the deployment checklist.
