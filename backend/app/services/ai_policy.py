@@ -1,9 +1,9 @@
 import json
 import os
 import re
-from itertools
+from itertools import combinations
 
-import httpx import combinations
+import httpx
 
 from app.core.models import PopulationConfig, SimulationConfig
 from app.services.policies import POLICIES, get_policy
