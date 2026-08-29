@@ -32,8 +32,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Creates the Neon table on a cold start, or the local SQLite table in development.
-init_db()
+# The Vercel deployment is stateless: browser session storage holds each result.
+# Local development can retain the original SQLite-backed flow.
+SESSION_ONLY = os.getenv("POLICYFORGE_SESSION_ONLY", "").lower() in {"1", "true", "yes"}
+if not SESSION_ONLY:
+    init_db()
 
 
 @app.get("/health")
@@ -94,8 +97,16 @@ def observed_chennai_calibration(size: int = 500):
     return chennai_calibration_anchor(size)
 
 
+@app.post("/api/simulations/run")
+def run_session_simulation(req: SimulationCreate):
+    """Run one scenario without server-side storage for browser-session use."""
+    return run(req.config)
+
+
 @app.post("/api/simulations")
 def create_simulation(req: SimulationCreate):
+    if SESSION_ONLY:
+        raise HTTPException(410, "Persistent simulations are disabled for this deployment.")
     return {"simulation_id": create(req.config), "status": "created"}
 
 
