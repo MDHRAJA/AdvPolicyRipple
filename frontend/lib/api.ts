@@ -119,10 +119,21 @@ const API = configuredApi !== undefined
   ? configuredApi.replace(/\/$/, '')
   : isLocalBrowser ? 'http://localhost:8000' : '';
 
+export const ACCESS_TOKEN_KEY = 'policyforge:access-token';
+
+function accessToken() {
+  return typeof window === 'undefined' ? null : window.sessionStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = accessToken();
   const response = await fetch(`${API}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers || {}),
+    },
   });
   if (!response.ok) {
     const message = await response.text().catch(() => 'Request failed');
@@ -132,6 +143,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  accessStatus: () => request<{ enabled: boolean }>('/api/access/status'),
+  unlockAccess: (password: string) => request<{ enabled: boolean; token: string | null }>('/api/access/unlock', { method: 'POST', body: JSON.stringify({ password }) }),
+  verifyAccess: () => request<{ valid: boolean }>('/api/access/verify', { method: 'POST' }),
   policies: () => request<Policy[]>('/api/policies'),
   aiStatus: () => request<AIInterpreterStatus>('/api/ai/status'),
   planPolicy: (payload: { prompt: string; objectives: string[]; size: number; rounds: number; seed: number }) => request<PolicyPlan>('/api/ai/policy-plan', { method: 'POST', body: JSON.stringify(payload) }),
