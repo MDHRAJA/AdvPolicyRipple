@@ -5,7 +5,7 @@ PolicyForge deploys as **one private Vercel Services project** with a single sha
 | Service | Repository root | Public route |
 | --- | --- | --- |
 | Next.js interface | `frontend` | `/` |
-| FastAPI simulation API | `backend` | Vercel-managed `/api/backend` |
+| FastAPI simulation API | `backend` | `/api/*` |
 
 The root `vercel.json` declares this layout. Vercel Services builds both applications together and applies password protection once to the shared deployment.
 
@@ -18,11 +18,10 @@ The root `vercel.json` declares this layout. Vercel Services builds both applica
    - `POLICYFORGE_AI_MODE`: `gemini`.
    - `GEMINI_API_KEY`: the Gemini key, entered only in Vercel.
    - `GEMINI_MODEL`: `gemini-3.7-flash`.
-   - `NEXT_PUBLIC_API_URL`: `/api/backend`.
 4. Apply every variable to Production, Preview, and Development.
-5. Deploy. The API health check will be at `/api/backend/health`.
+5. Deploy. The API health check will be at `/health`.
 
-`NEXT_PUBLIC_API_URL=/api/backend` means the web app calls the API through the same password-protected PolicyForge domain. No public API URL needs to be shared.
+The browser automatically calls `/api/*` on the same password-protected PolicyForge domain. Do not set `NEXT_PUBLIC_API_URL` in Vercel.
 
 ## 2. Protect teammate access
 
