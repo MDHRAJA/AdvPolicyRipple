@@ -8,6 +8,13 @@ POLICIES = {
         'policy_type': 'resource_reduction',
         'parameters': {'reduction': .25},
     },
+    'water_service_restoration': {
+        'id': 'water_service_restoration',
+        'name': 'Water Service Restoration',
+        'description': 'Restore household water availability after a shortage or rationing period.',
+        'policy_type': 'water_restoration',
+        'parameters': {'restoration': .15},
+    },
     'rent_zoning': {
         'id': 'rent_zoning',
         'name': 'Rent / Zoning Change',
