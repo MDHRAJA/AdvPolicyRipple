@@ -119,7 +119,7 @@ def apply_policy(agent, policy):
         agent['stress'] = clip(agent['stress'] + reduction * (.52 if agent['income_band'] == 'low' else .38))
         agent['satisfaction'] = clip(agent['satisfaction'] - reduction * .30)
         fairness = -reduction * (1.15 if agent['income_band'] == 'low' else .8)
-    elif policy_type == 'water_restoration':
+    elif policy_type in {'water_restoration', 'energy_restoration'}:
         restoration = max(0, min(.6, parameters.get('restoration', .15)))
         targeting = 1.22 if agent['income_band'] == 'low' else 1.0 if agent['income_band'] == 'middle' else .82
         agent['resource_access'] = clip(agent['resource_access'] + restoration * .62 * targeting)
@@ -127,7 +127,8 @@ def apply_policy(agent, policy):
         agent['satisfaction'] = clip(agent['satisfaction'] + restoration * .24 * targeting)
         fairness = restoration * (.95 if agent['income_band'] == 'low' else .65)
     elif policy_type == 'subsidy':
-        subsidy = max(0, min(.6, parameters.get('subsidy', .15)))
+        # A negative value is an explicit reduction/withdrawal in support.
+        subsidy = max(-.6, min(.6, parameters.get('subsidy', .15)))
         targeting = 1.18 if agent['income_band'] == 'low' else .92 if agent['income_band'] == 'high' else 1
         agent['resource_access'] = clip(agent['resource_access'] + subsidy * .55 * targeting)
         agent['stress'] = clip(agent['stress'] - subsidy * .30 * targeting)
