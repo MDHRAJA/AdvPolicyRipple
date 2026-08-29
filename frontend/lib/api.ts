@@ -110,7 +110,7 @@ export type SimulationResult = {
   [key: string]: unknown;
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Undefined means local development; an explicit /backend value is used by the Vercel Services deployment.\nconst API = process.env.NEXT_PUBLIC_API_URL === undefined\n  ? 'http://localhost:8000'\n  : process.env.NEXT_PUBLIC_API_URL.replace(/\\/$/, '');
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
