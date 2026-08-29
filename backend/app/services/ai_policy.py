@@ -13,6 +13,7 @@ KEYWORDS = {
     'water_rationing': ('water', 'drought', 'ration', 'shortage'),
     'water_service_restoration': ('water', 'restore', 'restoration', 'availability', 'supply'),
     'energy_rationing': ('energy', 'electricity', 'power', 'outage'),
+    'energy_service_restoration': ('energy', 'electricity', 'power', 'restore', 'restoration', 'availability'),
     'rent_zoning': ('rent', 'housing', 'tenant', 'zoning'),
     'transport_subsidy': ('bus', 'metro', 'transport', 'mobility'),
     'public_subsidy': ('subsidy', 'cash', 'income', 'afford'),
@@ -21,6 +22,7 @@ PHRASE_SIGNALS = {
     'water_rationing': ('water shortage', 'water scarcity', 'drinking water'),
     'water_service_restoration': ('increase water availability', 'available water', 'water service restoration', 'restore water'),
     'energy_rationing': ('power cut', 'energy shortage', 'electricity outage'),
+    'energy_service_restoration': ('increase electricity availability', 'restore electricity', 'restore power', 'energy service restoration'),
     'rent_zoning': ('housing cost', 'rent burden', 'affordable housing'),
     'transport_subsidy': ('public transport', 'bus fare', 'metro fare'),
     'public_subsidy': ('cost of living', 'financial relief', 'cash support'),
@@ -81,6 +83,27 @@ def _water_restoration_context(text):
     }
 
 
+def _service_restoration_context(text, service):
+    """Recognise supply restoration as the opposite of a service cut."""
+    patterns = {
+        'water': r'\b(increas(?:e|ing)|restore|restor(?:e|ing)|raise)\b[^.]{0,70}\b(?:available\s+)?water',
+        'energy': r'\b(increas(?:e|ing)|restore|restor(?:e|ing)|raise)\b[^.]{0,70}\b(?:available\s+)?(?:energy|electricity|power)',
+    }
+    if service not in patterns or not re.search(patterns[service], text):
+        return None
+    change = _percentage(text, 0)
+    label = 'water availability' if service == 'water' else 'electricity availability'
+    return {
+        'restoration': change,
+        'summary': f'Increase household {label} by {change * 100:.1f}%. This is treated as service restoration, not a new cut.',
+    }
+
+
+def _support_direction(text):
+    """Return -1 only for an explicit reduction in subsidy/support."""
+    return -1 if re.search(r'\b(reduce|cut|withdraw|remove|decrease|lower)\b[^.]{0,60}\b(subsid(?:y|ies)|support|fare support|transport support)', text) else 1
+
+
 def _fiscal_consideration(text):
     if not any(term in text for term in ('budget', 'fund', 'funds', 'money', 'cost', 'afford')):
         return None
@@ -98,6 +121,12 @@ def _implementation(policy_id, parameter, value):
         return {'parameter': 'water availability', 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Temporarily reduce household water availability by {percent}% during constrained periods.'}
     if policy_id == 'water_service_restoration':
         return {'parameter': 'water availability', 'direction': 'increase', 'value_percent': percent, 'instruction': f'Restore household water availability by {percent}%.'}
+    if policy_id == 'energy_service_restoration':
+        return {'parameter': 'electricity availability', 'direction': 'increase', 'value_percent': percent, 'instruction': f'Restore household electricity availability by {percent}%.'}
+    if policy_id in {'public_subsidy', 'transport_subsidy'}:
+        direction = 'reduce' if value < 0 else 'increase'
+        label = 'public subsidy support' if policy_id == 'public_subsidy' else 'public transport subsidy'
+        return {'parameter': label, 'direction': direction, 'value_percent': percent, 'instruction': f'{direction.capitalize()} {label} by {percent}%.'}
     if policy_id == 'energy_rationing':
         return {'parameter': 'energy availability', 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Temporarily reduce household energy availability by {percent}% during constrained periods.'}
     if policy_id == 'rent_zoning':
@@ -114,7 +143,7 @@ def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, so
         raise ValueError('Unsupported policy selected by interpreter.')
     policy = get_policy(policy_id)
     parameter_name, default = next(iter(policy['parameters'].items()))
-    value = max(0, min(.8, float(percentage) / 100)) if percentage is not None else default
+    value = max(-.8, min(.8, float(percentage) / 100)) if percentage is not None else default
     if parameter_name == 'cost_change':
         value = -value if housing_direction == 'reduce' else value
     normalized_objectives = [item for item in objectives if item in VALID_OBJECTIVES]
@@ -158,8 +187,11 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     scores = _policy_scores(text)
     selected = max(scores, key=scores.get)
     water_context = _water_restoration_context(text)
+    energy_context = _service_restoration_context(text, 'energy')
     if water_context:
         selected = 'water_service_restoration'
+    elif energy_context:
+        selected = 'energy_service_restoration'
     elif scores[selected] == 0:
         selected = 'public_subsidy' if any(word in text for word in ('support', 'help', 'relief')) else 'water_rationing'
     matched_signals = [signal for signal in (*KEYWORDS[selected], *PHRASE_SIGNALS[selected]) if signal in text]
@@ -168,9 +200,13 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     value = _percentage(text, default)
     if selected == 'water_service_restoration' and water_context:
         value = water_context['restoration']
+    elif selected == 'energy_service_restoration' and energy_context:
+        value = energy_context['restoration']
+    elif selected in {'public_subsidy', 'transport_subsidy'}:
+        value *= _support_direction(text)
     direction = 'reduce' if parameter_name == 'cost_change' and any(word in text for word in ('reduce', 'lower', 'affordable')) else 'increase'
     inferred_objectives = objectives or [name for name, words in OBJECTIVES.items() if any(word in text for word in words)]
-    summary = water_context['summary'] if selected == 'water_service_restoration' and water_context else f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
+    summary = water_context['summary'] if selected == 'water_service_restoration' and water_context else energy_context['summary'] if selected == 'energy_service_restoration' and energy_context else f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
     plan = _build_plan(selected, value * 100, direction, inferred_objectives, prompt, 'rule_based', summary, _fiscal_consideration(text))
     plan['proposed_config']['rounds'] = rounds
     plan['proposed_config']['seed'] = seed
@@ -219,12 +255,19 @@ def _interpret_gemini(prompt, objectives):
         raise ValueError("Gemini returned no structured policy interpretation.")
     proposal = json.loads(output)
     water_context = _water_restoration_context(prompt)
+    energy_context = _service_restoration_context(prompt, 'energy')
     percentage = proposal["percentage"]
     summary = proposal["summary"]
     if water_context:
         proposal["policy_id"] = 'water_service_restoration'
         percentage = water_context['restoration'] * 100
         summary = water_context['summary']
+    elif energy_context:
+        proposal["policy_id"] = 'energy_service_restoration'
+        percentage = energy_context['restoration'] * 100
+        summary = energy_context['summary']
+    elif proposal["policy_id"] in {'public_subsidy', 'transport_subsidy'}:
+        percentage *= _support_direction(prompt)
     return _build_plan(
         proposal["policy_id"],
         percentage,
@@ -269,10 +312,11 @@ def recommend(config, objectives):
     candidates = []
     policy_sets = [(policy_id,) for policy_id in POLICIES]
     policy_sets.extend(combinations(POLICIES, 2))
-    # Keep recommendations relevant to the stated service problem.  A water
-    # restoration request should not be displaced by an unrelated rent policy.
-    if config.policy_id == 'water_service_restoration':
-        policy_sets = [policy_set for policy_set in policy_sets if 'water_service_restoration' in policy_set]
+    # Keep recommendations relevant to the policy area the user described.
+    # Alternatives may add one supporting policy, but cannot replace the request
+    # with an unrelated domain such as rent/zoning.
+    if config.policy_id in POLICIES:
+        policy_sets = [policy_set for policy_set in policy_sets if config.policy_id in policy_set]
     for policy_ids in policy_sets:
         selections, implementations, names = [], [], []
         for policy_id in policy_ids:
