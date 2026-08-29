@@ -110,7 +110,10 @@ export type SimulationResult = {
   [key: string]: unknown;
 };
 
-// Undefined means local development; an explicit /backend value is used by the Vercel Services deployment.\nconst API = process.env.NEXT_PUBLIC_API_URL === undefined\n  ? 'http://localhost:8000'\n  : process.env.NEXT_PUBLIC_API_URL.replace(/\\/$/, '');
+// Undefined means local development; /backend is used by the Vercel Services deployment.
+const API = process.env.NEXT_PUBLIC_API_URL === undefined
+  ? 'http://localhost:8000'
+  : process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
@@ -137,7 +140,7 @@ export const api = {
     request<{ simulation_id: string; status: string }>('/api/simulations', {
       method: 'POST', body: JSON.stringify({ config }),
     }),
-  run: (id: string) => request<SimulationResult>(`/api/simulations/${id}/run`, { method: 'POST' }),
+  runSession: (config: SimulationConfig) => request<SimulationResult>('/api/simulations/run', { method: 'POST', body: JSON.stringify({ config }) }),
   get: (id: string) => request<{ simulation_id: string; config: SimulationConfig; result: SimulationResult | null }>(`/api/simulations/${id}`),
   results: (id: string) => request<SimulationResult>(`/api/simulations/${id}/results`),
   compare: (base_config: SimulationConfig, policies: SimulationConfig[]) =>
