@@ -83,7 +83,6 @@ function PlannerPageContent() {
           <div className="policy-note"><b>Alternative options</b><span>{plan.recommendation.alternatives.map((item) => item.name).join(' · ')}</span></div>
           <p className="helper">{plan.recommendation.boundary}</p>
           </>}
-          <div className="policy-note"><b>Alternative options</b><span>{plan.recommendation.alternatives.map((item) => item.name).join(' · ')}</span></div><p className="helper">{plan.recommendation.boundary}</p>
         </>}
       </section>
     </div>
