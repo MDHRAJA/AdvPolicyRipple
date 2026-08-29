@@ -91,6 +91,6 @@ The simulator supports a primary policy plus one companion policy. Each policy r
 
 PolicyForge deploys as one private Vercel Services project. It uses stateless simulation runs, keeping results only in the current browser session—no Neon or other database is needed.
 
-Set `POLICYFORGE_SESSION_ONLY=true`, `POLICYFORGE_AI_MODE=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.7-flash`, and `NEXT_PUBLIC_API_URL=/backend` in Vercel. Enable password protection for the project.
+Set `POLICYFORGE_SESSION_ONLY=true`, `POLICYFORGE_AI_MODE=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.7-flash`, and `NEXT_PUBLIC_API_URL=/api/backend` in Vercel. Enable password protection for the project.
 
 See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) for the deployment checklist.
