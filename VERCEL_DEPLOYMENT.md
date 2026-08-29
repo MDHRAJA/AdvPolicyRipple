@@ -1,51 +1,42 @@
 # Private Vercel deployment
 
-PolicyForge is deployed as two **private Vercel projects** from the same repository:
+PolicyForge deploys as **one private Vercel Services project** with a single shareable URL:
 
-| Project | Vercel Root Directory | Purpose |
+| Service | Repository root | Public route |
 | --- | --- | --- |
-| `policyforge-web` | `frontend` | Next.js interface |
-| `policyforge-api` | `backend` | FastAPI simulation API |
+| Next.js interface | `frontend` | `/` |
+| FastAPI simulation API | `backend` | `/backend` |
 
-This arrangement keeps the frontend and API independently deployable while both remain on Vercel.
+The root `vercel.json` declares this layout. Vercel Services builds both applications together and applies password protection once to the shared deployment.
 
 ## 1. Create the Neon database
 
 In Vercel, open **Storage** or the Marketplace and create a Neon Postgres database. Copy its pooled connection string. Do not commit it to the repository.
 
-## 2. Import the API
+## 2. Import and configure PolicyForge
 
 1. In Vercel, choose **Add New → Project** and import `MDHRAJA/AdvPolicyRipple`.
-2. Set **Root Directory** to `backend`.
+2. Keep **Root Directory** as `./`; Vercel reads the root `vercel.json` to identify both services.
 3. In **Environment Variables**, add:
    - `DATABASE_URL`: the Neon connection string.
-   - `CORS_ORIGINS`: the private web deployment URL, for example `https://policyforge-web.vercel.app`.
-   - `POLICYFORGE_AI_MODE`: `rule_based`, or `gemini` if AI interpretation is wanted.
-   - `GEMINI_API_KEY` and `GEMINI_MODEL` only if using the Gemini option.
-4. Deploy. The health check is available at `/health`.
+   - `POLICYFORGE_AI_MODE`: `gemini`.
+   - `GEMINI_API_KEY`: the Gemini key, entered only in Vercel.
+   - `GEMINI_MODEL`: `gemini-3.7-flash`.
+   - `NEXT_PUBLIC_API_URL`: `/backend`.
+4. Apply every variable to Production, Preview, and Development.
+5. Deploy. The API health check will be at `/backend/health`.
 
-The database table is created automatically on first API start.
+`NEXT_PUBLIC_API_URL=/backend` means the web app calls the API through the same password-protected PolicyForge domain. No public API URL needs to be shared.
 
-## 3. Import the web interface
-
-1. Create a second Vercel project from the same GitHub repository.
-2. Set **Root Directory** to `frontend`.
-3. Add `NEXT_PUBLIC_API_URL` with the API project’s complete HTTPS URL, without a trailing slash.
-4. Deploy.
-
-`NEXT_PUBLIC_API_URL` is safe to expose because it contains only the API address. Never put `GEMINI_API_KEY` in the web project.
-
-## 4. Make both deployments private
-
-For **both** Vercel projects:
+## 3. Protect teammate access
 
 1. Open **Settings → Deployment Protection**.
 2. Enable **Password Protection**.
 3. Apply it to **All Deployments**, including Production.
 4. Set one strong shared password and give it only to intended teammates.
 
-Do this before sharing the deployment URL. Teammates can use the site from any computer after entering the password; the password-protection feature must be available on the selected Vercel plan.
+Teammates can open the single deployment URL on any computer, enter the password, and use PolicyForge. Password protection availability depends on the selected Vercel plan.
 
 ## Local development
 
-Leave `DATABASE_URL` unset. PolicyForge uses the existing local SQLite database automatically, so local commands remain unchanged.
+Leave `DATABASE_URL` and `NEXT_PUBLIC_API_URL` unset. PolicyForge then uses local SQLite and `http://localhost:8000` automatically.
