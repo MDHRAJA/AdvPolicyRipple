@@ -91,7 +91,9 @@ export type IncomeGroupImpact = { baseline: Pick<Metrics, 'resource_access' | 's
 
 export type AIInterpreterStatus = { configured: 'gemini' | 'rule_based'; display: string; fallback: string };
 
-export type PolicyPlan = { interpretation: string; interpretation_source: 'gemini' | 'rule_based'; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; policy_detail: { parameter: string; value_percent: number; population_basis: string }; recommendation: { recommended: { policy_id: string; name: string; score: number; preview: Metrics; income_groups: Record<'low' | 'middle' | 'high', IncomeGroupImpact>; policy_bundle: Array<{ policy_id: string; name: string; policy_parameters: Record<string, number>; parameter: string; direction: string; value_percent: number; instruction: string }>; implementation: { parameter: string; direction: string; value_percent: number; instruction: string } }; alternatives: Array<{ policy_id: string; name: string; score: number; preview: Metrics; policy_bundle?: Array<{ policy_id: string; name: string }> }>; explanation: string; boundary: string } };
+export type PolicyRecommendation = { recommended: { policy_id: string; name: string; score: number; preview: Metrics; income_groups: Record<'low' | 'middle' | 'high', IncomeGroupImpact>; policy_bundle: Array<{ policy_id: string; name: string; policy_parameters: Record<string, number>; parameter: string; direction: string; value_percent: number; instruction: string }>; implementation: { parameter: string; direction: string; value_percent: number; instruction: string } }; alternatives: Array<{ policy_id: string; name: string; score: number; preview: Metrics; policy_bundle?: Array<{ policy_id: string; name: string }> }>; explanation: string; boundary: string };
+
+export type PolicyPlan = { interpretation: string; interpretation_source: 'gemini' | 'rule_based'; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; policy_detail: { parameter: string; value_percent: number; population_basis: string }; recommendation?: PolicyRecommendation };
 
 export type WardImpact = { baseline: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> & { synthetic_agents: number }; final: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> & { synthetic_agents: number }; change: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> };
 
@@ -133,6 +135,7 @@ export const api = {
   policies: () => request<Policy[]>('/api/policies'),
   aiStatus: () => request<AIInterpreterStatus>('/api/ai/status'),
   planPolicy: (payload: { prompt: string; objectives: string[]; size: number; rounds: number; seed: number }) => request<PolicyPlan>('/api/ai/policy-plan', { method: 'POST', body: JSON.stringify(payload) }),
+  policyRecommendation: (config: SimulationConfig, objectives: string[]) => request<PolicyRecommendation>('/api/ai/recommendation', { method: 'POST', body: JSON.stringify({ config, objectives }) }),
   populations: () => request<Population[]>('/api/populations'),
   chennaiObserved: () => request<ChennaiObserved>('/api/observed/chennai'),
   chennaiWards: () => request<ChennaiWards>('/api/observed/chennai/wards'),
