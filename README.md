@@ -77,7 +77,7 @@ $env:GEMINI_API_KEY = 'your_api_key_here'
 $env:GEMINI_MODEL = 'gemini-3.7-flash'
 ```
 
-The Gemini layer can only choose from PolicyForge’s supported policies and bounded parameters; the backend validates its JSON output before running a simulation. It never supplies simulation metrics. To undo or disable the integration, remove `GEMINI_API_KEY` or set `POLICYFORGE_AI_MODE = 'rule_based'`; the built-in interpreter remains the default fallback, including if an Gemini request fails.
+The Gemini layer can only choose from PolicyForge’s supported policies and bounded parameters; the backend validates its JSON output before running a simulation. It never supplies simulation metrics. To undo or disable the integration, remove `GEMINI_API_KEY` or set `POLICYFORGE_AI_MODE = 'rule_based'`; the built-in interpreter remains the default fallback, including if a Gemini request fails.
 
 ## Chennai ward explorer
 
