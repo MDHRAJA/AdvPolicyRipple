@@ -1,7 +1,9 @@
 import json
 import os
 import re
-from itertools import combinations
+from itertools
+
+import httpx import combinations
 
 from app.core.models import PopulationConfig, SimulationConfig
 from app.services.policies import POLICIES, get_policy
@@ -29,7 +31,7 @@ OBJECTIVES = {
     'improve_compliance': ('compliance', 'adoption', 'follow'),
 }
 VALID_OBJECTIVES = set(OBJECTIVES)
-OPENAI_SCHEMA = {
+GEMINI_SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'properties': {
@@ -128,61 +130,80 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     return plan
 
 
-def _interpret_openai(prompt, objectives):
-    """Return a constrained plan proposal. No model output is accepted without validation."""
-    from openai import OpenAI
-
-    model = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')
-    client = OpenAI(timeout=8.0, max_retries=0)
+def _interpret_gemini(prompt, objectives):
+    """Interpret the request with Gemini, then validate every returned field locally."""
+    model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
     system = (
-        'You are the PolicyForge policy-intake layer. Select exactly one supported policy and one percentage. '
-        'Never invent policies, datasets, outcomes, or evidence. Interpret only the user text. '
-        f'Supported policies: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}. '
-        f'Allowed objectives: {sorted(VALID_OBJECTIVES)}. '
-        'Use housing_direction=reduce only when the user wants housing costs reduced; otherwise use increase. '
-        'The summary must state the interpretation, not a prediction or recommendation.'
+        "You are the PolicyForge policy-intake layer. Select exactly one supported policy and one percentage. "
+        "Never invent policies, datasets, outcomes, or evidence. Interpret only the user text. "
+        f"Supported policies: {json.dumps({key: value['name'] for key, value in POLICIES.items()})}. "
+        f"Allowed objectives: {sorted(VALID_OBJECTIVES)}. "
+        "Use housing_direction=reduce only when the user wants housing costs reduced; otherwise use increase. "
+        "The summary must state the interpretation, not a prediction or recommendation."
     )
-    response = client.responses.create(
-        model=model,
-        instructions=system,
-        input=f'Policy request: {prompt}\nSelected objectives: {objectives}',
-        text={'format': {'type': 'json_schema', 'name': 'policyforge_policy_intake', 'strict': True, 'schema': OPENAI_SCHEMA}},
+    response = httpx.post(
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
+        headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"], "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "input": f"{system}\n\nPolicy request: {prompt}\nSelected objectives: {objectives}",
+            "store": False,
+            "response_format": {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": GEMINI_SCHEMA,
+            },
+        },
+        timeout=12.0,
     )
-    proposal = json.loads(response.output_text)
+    response.raise_for_status()
+    payload = response.json()
+    output = payload.get("output_text")
+    if not output:
+        for step in reversed(payload.get("steps", [])):
+            for content in step.get("content", []):
+                if content.get("type") == "text" and content.get("text"):
+                    output = content["text"]
+                    break
+            if output:
+                break
+    if not output:
+        raise ValueError("Gemini returned no structured policy interpretation.")
+    proposal = json.loads(output)
     return _build_plan(
-        proposal['policy_id'],
-        proposal['percentage'],
-        proposal['housing_direction'],
-        objectives or proposal['objectives'],
+        proposal["policy_id"],
+        proposal["percentage"],
+        proposal["housing_direction"],
+        objectives or proposal["objectives"],
         prompt,
-        'openai',
-        proposal['summary'],
+        "gemini",
+        proposal["summary"],
     )
 
 
 def interpreter_status():
-    """Expose the active interpreter mode without exposing any credentials."""
-    openai_enabled = os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'openai'
-    has_key = bool(os.getenv('OPENAI_API_KEY'))
-    if openai_enabled and has_key:
-        return {'configured': 'openai', 'display': 'OpenAI-assisted', 'fallback': 'Local rule-based fallback is used if OpenAI is unavailable.'}
-    if openai_enabled:
-        return {'configured': 'rule_based', 'display': 'Local rule-based', 'fallback': 'OpenAI mode was requested but no backend API key is configured.'}
-    return {'configured': 'rule_based', 'display': 'Local rule-based', 'fallback': 'OpenAI interpretation is currently disabled.'}
+    """Expose the active interpreter without exposing credentials."""
+    gemini_enabled = os.getenv("POLICYFORGE_AI_MODE", "rule_based").lower() == "gemini"
+    has_key = bool(os.getenv("GEMINI_API_KEY"))
+    if gemini_enabled and has_key:
+        return {"configured": "gemini", "display": "Gemini-assisted", "fallback": "Local rule-based fallback is used if Gemini is unavailable."}
+    if gemini_enabled:
+        return {"configured": "rule_based", "display": "Local rule-based", "fallback": "Gemini mode was requested but no backend API key is configured."}
+    return {"configured": "rule_based", "display": "Local rule-based", "fallback": "Gemini interpretation is currently disabled."}
 
 
 def interpret(prompt, objectives, size=10000, rounds=20, seed=42):
-    """Use OpenAI only when explicitly enabled; always fall back to local interpretation."""
-    enabled = os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'openai'
-    if enabled and os.getenv('OPENAI_API_KEY'):
+    """Use Gemini only when explicitly enabled; always fall back to local interpretation."""
+    enabled = os.getenv("POLICYFORGE_AI_MODE", "rule_based").lower() == "gemini"
+    if enabled and os.getenv("GEMINI_API_KEY"):
         try:
-            plan = _interpret_openai(prompt, objectives)
-            plan['proposed_config']['rounds'] = rounds
-            plan['proposed_config']['seed'] = seed
+            plan = _interpret_gemini(prompt, objectives)
+            plan["proposed_config"]["rounds"] = rounds
+            plan["proposed_config"]["seed"] = seed
             return plan
         except Exception:
             plan = interpret_rules(prompt, objectives, size, rounds, seed)
-            plan['assumptions'].append('OpenAI interpretation was unavailable, so the local rule-based interpreter was used.')
+            plan["assumptions"].append("Gemini interpretation was unavailable, so the local rule-based interpreter was used.")
             return plan
     return interpret_rules(prompt, objectives, size, rounds, seed)
 
