@@ -11,6 +11,7 @@ from app.services.simulation import run
 
 KEYWORDS = {
     'water_rationing': ('water', 'drought', 'ration', 'shortage'),
+    'water_service_restoration': ('water', 'restore', 'restoration', 'availability', 'supply'),
     'energy_rationing': ('energy', 'electricity', 'power', 'outage'),
     'rent_zoning': ('rent', 'housing', 'tenant', 'zoning'),
     'transport_subsidy': ('bus', 'metro', 'transport', 'mobility'),
@@ -18,6 +19,7 @@ KEYWORDS = {
 }
 PHRASE_SIGNALS = {
     'water_rationing': ('water shortage', 'water scarcity', 'drinking water'),
+    'water_service_restoration': ('increase water availability', 'available water', 'water service restoration', 'restore water'),
     'energy_rationing': ('power cut', 'energy shortage', 'electricity outage'),
     'rent_zoning': ('housing cost', 'rent burden', 'affordable housing'),
     'transport_subsidy': ('public transport', 'bus fare', 'metro fare'),
@@ -67,12 +69,13 @@ def _water_restoration_context(text):
     current = re.search(r'\b(?:current|existing|present)\s+(?:water\s+)?(?:cut|ration(?:ing)?)\s*(?:is|of|at)?\s*(\d{1,2}(?:\.\d+)?)\s*%', text)
     if not current:
         return {
-            'target_cut': None,
-            'summary': 'The request increases water availability, but does not state the current water-cut baseline. PolicyForge will not convert that into a rationing percentage without a baseline.',
+            'restoration': change,
+            'summary': f'Increase household water availability by {change * 100:.1f}%. This is treated as water service restoration, not a new water cut.',
         }
     existing_cut = max(0, min(.8, float(current.group(1)) / 100))
     target_cut = max(0, existing_cut - change)
     return {
+        'restoration': change,
         'target_cut': target_cut,
         'summary': f'Water availability is restored by {change * 100:.1f} percentage points: the stated {existing_cut * 100:.1f}% water cut becomes a {target_cut * 100:.1f}% target cut.',
     }
@@ -93,6 +96,8 @@ def _implementation(policy_id, parameter, value):
     percent = round(abs(value) * 100, 1)
     if policy_id == 'water_rationing':
         return {'parameter': 'water availability', 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Temporarily reduce household water availability by {percent}% during constrained periods.'}
+    if policy_id == 'water_service_restoration':
+        return {'parameter': 'water availability', 'direction': 'increase', 'value_percent': percent, 'instruction': f'Restore household water availability by {percent}%.'}
     if policy_id == 'energy_rationing':
         return {'parameter': 'energy availability', 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Temporarily reduce household energy availability by {percent}% during constrained periods.'}
     if policy_id == 'rent_zoning':
@@ -152,18 +157,20 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     text = prompt.lower()
     scores = _policy_scores(text)
     selected = max(scores, key=scores.get)
-    if scores[selected] == 0:
+    water_context = _water_restoration_context(text)
+    if water_context:
+        selected = 'water_service_restoration'
+    elif scores[selected] == 0:
         selected = 'public_subsidy' if any(word in text for word in ('support', 'help', 'relief')) else 'water_rationing'
     matched_signals = [signal for signal in (*KEYWORDS[selected], *PHRASE_SIGNALS[selected]) if signal in text]
     policy = get_policy(selected)
     parameter_name, default = next(iter(policy['parameters'].items()))
     value = _percentage(text, default)
-    water_context = _water_restoration_context(text)
-    if selected == 'water_rationing' and water_context and water_context['target_cut'] is not None:
-        value = water_context['target_cut']
+    if selected == 'water_service_restoration' and water_context:
+        value = water_context['restoration']
     direction = 'reduce' if parameter_name == 'cost_change' and any(word in text for word in ('reduce', 'lower', 'affordable')) else 'increase'
     inferred_objectives = objectives or [name for name, words in OBJECTIVES.items() if any(word in text for word in words)]
-    summary = water_context['summary'] if selected == 'water_rationing' and water_context else f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
+    summary = water_context['summary'] if selected == 'water_service_restoration' and water_context else f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
     plan = _build_plan(selected, value * 100, direction, inferred_objectives, prompt, 'rule_based', summary, _fiscal_consideration(text))
     plan['proposed_config']['rounds'] = rounds
     plan['proposed_config']['seed'] = seed
@@ -214,8 +221,9 @@ def _interpret_gemini(prompt, objectives):
     water_context = _water_restoration_context(prompt)
     percentage = proposal["percentage"]
     summary = proposal["summary"]
-    if proposal["policy_id"] == 'water_rationing' and water_context and water_context['target_cut'] is not None:
-        percentage = water_context['target_cut'] * 100
+    if water_context:
+        proposal["policy_id"] = 'water_service_restoration'
+        percentage = water_context['restoration'] * 100
         summary = water_context['summary']
     return _build_plan(
         proposal["policy_id"],
@@ -261,6 +269,10 @@ def recommend(config, objectives):
     candidates = []
     policy_sets = [(policy_id,) for policy_id in POLICIES]
     policy_sets.extend(combinations(POLICIES, 2))
+    # Keep recommendations relevant to the stated service problem.  A water
+    # restoration request should not be displaced by an unrelated rent policy.
+    if config.policy_id == 'water_service_restoration':
+        policy_sets = [policy_set for policy_set in policy_sets if 'water_service_restoration' in policy_set]
     for policy_ids in policy_sets:
         selections, implementations, names = [], [], []
         for policy_id in policy_ids:
