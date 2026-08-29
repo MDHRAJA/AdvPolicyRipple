@@ -91,6 +91,12 @@ The simulator supports a primary policy plus one companion policy. Each policy r
 
 PolicyForge deploys as one private Vercel Services project. It uses stateless simulation runs, keeping results only in the current browser session—no Neon or other database is needed.
 
-Set `POLICYFORGE_SESSION_ONLY=true`, `POLICYFORGE_AI_MODE=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.7-flash` in Vercel. Enable password protection for the project.
+Set `POLICYFORGE_SESSION_ONLY=true`, `POLICYFORGE_AI_MODE=gemini`, `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.7-flash` in Vercel.
+
+### Reversible application password gate
+
+Set the backend-only Vercel environment variable `POLICYFORGE_ACCESS_PASSWORD` to enable the built-in private-workspace password screen. The value is never committed to the repository or sent to the frontend. It is checked by the FastAPI service, and each successful browser session receives a short-lived signed access token.
+
+To disable the gate immediately, delete `POLICYFORGE_ACCESS_PASSWORD` in Vercel and redeploy. The app then opens normally. The protection code can also be removed in one later change if no longer needed.
 
 See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) for the deployment checklist.
