@@ -9,16 +9,12 @@ PolicyForge deploys as **one private Vercel Services project** with a single sha
 
 The root `vercel.json` declares this layout. Vercel Services builds both applications together and applies password protection once to the shared deployment.
 
-## 1. Create the Neon database
-
-In Vercel, open **Storage** or the Marketplace and create a Neon Postgres database. Copy its pooled connection string. Do not commit it to the repository.
-
-## 2. Import and configure PolicyForge
+## 1. Import and configure PolicyForge
 
 1. In Vercel, choose **Add New → Project** and import `MDHRAJA/AdvPolicyRipple`.
 2. Keep **Root Directory** as `./`; Vercel reads the root `vercel.json` to identify both services.
 3. In **Environment Variables**, add:
-   - `DATABASE_URL`: the Neon connection string.
+   - `POLICYFORGE_SESSION_ONLY`: `true`.
    - `POLICYFORGE_AI_MODE`: `gemini`.
    - `GEMINI_API_KEY`: the Gemini key, entered only in Vercel.
    - `GEMINI_MODEL`: `gemini-3.7-flash`.
@@ -28,7 +24,7 @@ In Vercel, open **Storage** or the Marketplace and create a Neon Postgres databa
 
 `NEXT_PUBLIC_API_URL=/backend` means the web app calls the API through the same password-protected PolicyForge domain. No public API URL needs to be shared.
 
-## 3. Protect teammate access
+## 2. Protect teammate access
 
 1. Open **Settings → Deployment Protection**.
 2. Enable **Password Protection**.
@@ -39,4 +35,4 @@ Teammates can open the single deployment URL on any computer, enter the password
 
 ## Local development
 
-Leave `DATABASE_URL` and `NEXT_PUBLIC_API_URL` unset. PolicyForge then uses local SQLite and `http://localhost:8000` automatically.
+For the same no-save behavior locally, set `POLICYFORGE_SESSION_ONLY=true`. Leave `NEXT_PUBLIC_API_URL` unset to use `http://localhost:8000` automatically.
