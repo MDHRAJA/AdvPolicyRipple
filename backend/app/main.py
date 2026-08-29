@@ -92,7 +92,7 @@ def _valid_access_token(token: str | None):
 
 @app.middleware("http")
 async def access_gate(request: Request, call_next):
-    if not _access_enabled() or request.url.path in ACCESS_EXEMPT_PATHS:
+    if request.method == "OPTIONS" or not _access_enabled() or request.url.path in ACCESS_EXEMPT_PATHS:
         return await call_next(request)
     authorization = request.headers.get("authorization", "")
     token = authorization.removeprefix("Bearer ").strip() if authorization.startswith("Bearer ") else ""
