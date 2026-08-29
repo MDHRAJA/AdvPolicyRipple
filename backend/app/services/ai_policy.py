@@ -58,14 +58,20 @@ def _percentage(text, default):
 
 
 def _implementation(policy_id, parameter, value):
+    """Give each policy a direct, human-readable implementation description."""
     percent = round(abs(value) * 100, 1)
+    if policy_id == 'water_rationing':
+        return {'parameter': 'water availability', 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Temporarily reduce household water availability by {percent}% during constrained periods.'}
+    if policy_id == 'energy_rationing':
+        return {'parameter': 'energy availability', 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Temporarily reduce household energy availability by {percent}% during constrained periods.'}
     if policy_id == 'rent_zoning':
         direction = 'reduce' if value < 0 else 'increase'
-        return {'parameter': 'housing cost', 'direction': direction, 'value_percent': percent, 'instruction': f'{direction.capitalize()} modeled housing cost by {percent}% through the rent/zoning lever.'}
-    if parameter == 'reduction':
-        return {'parameter': parameter.replace('_', ' '), 'direction': 'reduce', 'value_percent': percent, 'instruction': f'Reduce the modeled resource availability by {percent}%.'}
-    return {'parameter': parameter.replace('_', ' '), 'direction': 'increase', 'value_percent': percent, 'instruction': f'Increase the modeled {parameter.replace("_", " ")} by {percent}%.'}
-
+        return {'parameter': 'housing cost', 'direction': direction, 'value_percent': percent, 'instruction': f'{direction.capitalize()} housing cost by {percent}% through rent and zoning adjustments.'}
+    if policy_id == 'public_subsidy':
+        return {'parameter': 'public subsidy', 'direction': 'increase', 'value_percent': percent, 'instruction': f'Increase public subsidy support by {percent}%.'}
+    if policy_id == 'transport_subsidy':
+        return {'parameter': 'public transport subsidy', 'direction': 'increase', 'value_percent': percent, 'instruction': f'Increase the public transport subsidy by {percent}%.'}
+    return {'parameter': parameter.replace('_', ' '), 'direction': 'increase', 'value_percent': percent, 'instruction': f'Increase {parameter.replace("_", " ")} by {percent}%.'}
 
 def _build_plan(policy_id, percentage, housing_direction, objectives, prompt, source, summary):
     if policy_id not in POLICIES:
