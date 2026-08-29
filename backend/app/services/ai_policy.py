@@ -321,7 +321,10 @@ def recommend(config, objectives):
         selections, implementations, names = [], [], []
         for policy_id in policy_ids:
             policy = POLICIES[policy_id]
-            parameter_name, value = next(iter(policy['parameters'].items()))
+            parameter_name, default_value = next(iter(policy['parameters'].items()))
+            # Preserve the user's interpreted direction and amount for the
+            # focal policy; only supporting options use their neutral defaults.
+            value = config.policy_parameters.get(parameter_name, default_value) if policy_id == config.policy_id else default_value
             selections.append({'policy_id': policy_id, 'policy_parameters': {parameter_name: value}})
             implementations.append({'policy_id': policy_id, 'name': policy['name'], 'policy_parameters': {parameter_name: value}, **_implementation(policy_id, parameter_name, value)})
             names.append(policy['name'])
