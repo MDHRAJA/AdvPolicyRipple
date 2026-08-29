@@ -3,8 +3,11 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
-CHENNAI_DIR = ROOT / 'data' / 'chennai'
+# Production packages this directory with the backend service.  The second
+# location keeps the original repository layout usable during local development.
+BUNDLED_CHENNAI_DIR = Path(__file__).resolve().parents[2] / 'data' / 'chennai'
+REPOSITORY_CHENNAI_DIR = Path(__file__).resolve().parents[3] / 'data' / 'chennai'
+CHENNAI_DIR = BUNDLED_CHENNAI_DIR if BUNDLED_CHENNAI_DIR.exists() else REPOSITORY_CHENNAI_DIR
 METRICS_FILE = CHENNAI_DIR / 'observed_metrics.csv'
 SOURCES_FILE = CHENNAI_DIR / 'source_catalog.json'
 
