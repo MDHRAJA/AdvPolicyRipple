@@ -184,6 +184,12 @@ def run(config):
         agent['policy_fairness'] = 0
         if not target_wards or agent['ward'] in target_wards:
             agent['policy_fairness'] = sum(apply_policy(agent, policy) for policy in policies)
+    # Neighbourhood membership never changes during a run. Build these groups
+    # once instead of reconstructing the same mapping every simulation round.
+    neighbourhood_groups = {}
+    for agent in agents:
+        neighbourhood_groups.setdefault(agent['neighborhood'], []).append(agent)
+
     timeline = []
 
     for round_number in range(1, config.rounds + 1):
@@ -193,10 +199,7 @@ def run(config):
             agent['support'] = clip(agent['support'] + (agent['satisfaction'] - .5) * .05 + fairness * .045)
             agent['trust'] = clip(agent['trust'] + fairness * .035 + (agent['satisfaction'] - .5) * .012 - (agent['stress'] - .5) * .010)
 
-        groups = {}
-        for agent in agents:
-            groups.setdefault(agent['neighborhood'], []).append(agent)
-        for group in groups.values():
+        for group in neighbourhood_groups.values():
             if len(group) < 2:
                 continue
             for _ in range(min(4, len(group))):
