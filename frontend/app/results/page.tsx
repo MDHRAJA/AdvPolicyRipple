@@ -65,7 +65,7 @@ function PolicyEffectRange({ metric, effect }: { metric: keyof Metrics; effect: 
   const change = effect.change[metric];
   const minimum = effect.min_change[metric];
   const maximum = effect.max_change[metric];
-  return <div className="range-row"><div><b>{labels[metric]} change</b><span>{formatDelta(minimum)} to {formatDelta(maximum)} across {effect.runs} paired runs</span></div><strong>{formatDelta(change)}</strong><div className="range-track"><i style={{ left: `${Math.min(minimum, maximum) * 50 + 50}%`, width: `${Math.abs(maximum - minimum) * 100}%` }} /></div></div>;
+  return <div className="range-row"><div><b>{labels[metric]} change</b><span>{formatDelta(minimum)} to {formatDelta(maximum)} across {effect.runs} paired runs</span></div><strong>{formatDelta(change)}</strong><div className="range-track"><i style={{ left: `${Math.min(minimum, maximum) * 50 + 50}%`, width: `${Math.abs(maximum - minimum) * 50}%` }} /></div></div>;
 }
 
 function IncomeImpactRow({ group, impact }: { group: 'low' | 'middle' | 'high'; impact: NonNullable<SimulationResult['income_group_impacts']>['low'] }) {
