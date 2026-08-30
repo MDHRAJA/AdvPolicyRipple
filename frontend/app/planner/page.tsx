@@ -44,6 +44,7 @@ function PlannerPageContent() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [assessing, setAssessing] = useState(false);
+  const [runningReviewedPolicy, setRunningReviewedPolicy] = useState(false);
   const [interpreter, setInterpreter] = useState<AIInterpreterStatus | null>(null);
 
   useEffect(() => { api.aiStatus().then(setInterpreter).catch(() => setInterpreter(null)); }, []);
@@ -79,7 +80,7 @@ function PlannerPageContent() {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not assess this policy request.'); }
     finally { setBusy(false); }
   }
-  function apply() {
+  async function apply() {
     if (!plan?.recommendation) return;
     const recommendation = plan.recommendation.recommended.policy_bundle;
     const reviewedConfig = recommendation.length ? {
@@ -88,8 +89,22 @@ function PlannerPageContent() {
       policy_parameters: recommendation[0].policy_parameters,
       policy_bundle: recommendation.length > 1 ? recommendation.map((item) => ({ policy_id: item.policy_id, policy_parameters: item.policy_parameters })) : [],
     } : plan.proposed_config;
-    const config = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(reviewedConfig)))));
-    router.push(`/simulate?config=${config}`);
+
+    setRunningReviewedPolicy(true);
+    setError('');
+    try {
+      const result = await api.runSession(reviewedConfig);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(
+          'policyforge:lastSimulation',
+          JSON.stringify({ config: reviewedConfig, result }),
+        );
+      }
+      router.push('/results');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'The reviewed policy experiment could not run.');
+      setRunningReviewedPolicy(false);
+    }
   }
 
   return <main className="page-shell planner-page">
@@ -115,7 +130,7 @@ function PlannerPageContent() {
           <div className="policy-note"><b>{plan.recommendation.recommended.policy_bundle.length > 1 ? 'Recommended policy combination' : 'Recommended percentage change'}</b><span>{plan.recommendation.recommended.policy_bundle.map((item) => <span key={item.policy_id} className="income-impact"><strong>{item.name}</strong> — {item.instruction}</span>)}</span></div>
           <section className="policy-note"><b>How each income group is affected</b><span>{(['low', 'middle', 'high'] as const).map((group) => { const impact = plan.recommendation!.recommended.income_groups[group]; return <span key={group} className="income-impact"><strong>{group === 'low' ? 'Low' : group === 'middle' ? 'Middle' : 'High'} income:</strong> Access {percentagePointChange(impact.change.resource_access)}, stress {percentagePointChange(impact.change.stress)}, trust {percentagePointChange(impact.change.trust)}, compliance {percentagePointChange(impact.change.compliance)}.</span>; })}<em>These are simulated changes from each synthetic group’s starting point; lower stress is favourable.</em></span></section>
           <section className="policy-note"><b>Expected simulated profile</b><span>Resource access {(plan.recommendation.recommended.preview.resource_access * 100).toFixed(1)}% · stress {(plan.recommendation.recommended.preview.stress * 100).toFixed(1)}% · trust {(plan.recommendation.recommended.preview.trust * 100).toFixed(1)}% · compliance {(plan.recommendation.recommended.preview.compliance * 100).toFixed(1)}%.</span></section>
-          <button className="btn primary planner-run" onClick={apply}>REVIEW IN SIMULATOR →</button>
+          <button className="btn primary planner-run" onClick={() => void apply()} disabled={runningReviewedPolicy}>{runningReviewedPolicy ? 'RUNNING AI POLICY EXPERIMENT…' : 'RUN AI POLICY EXPERIMENT →'}</button>
           <div className="policy-note"><b>Alternative options</b><span>{plan.recommendation.alternatives.map((item) => item.name).join(' · ')}</span></div>
           <p className="helper">{plan.recommendation.boundary}</p>
           </>}
