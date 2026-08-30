@@ -82,7 +82,7 @@ function PlannerPageContent() {
         <textarea className="planner-textarea" value={prompt} onChange={(event) => setPrompt(event.target.value)} aria-label="Policy problem description" />
         <div className="label planner-label">02 · What matters most?</div>
         <div className="objective-list">{objectives.map(([id, label]) => <button key={id} className={`chip ${selected.includes(id) ? 'active' : ''}`} onClick={() => toggle(id)}>{label}</button>)}</div>
-        <button className="btn primary planner-run" onClick={interpret} disabled={busy || assessing}>{busy ? 'INTERPRETING…' : assessing ? 'COMPARING OPTIONS…' : 'INTERPRET POLICY →'}</button>
+        <button className="btn primary planner-run" onClick={() => interpret()} disabled={busy || assessing}>{busy ? 'INTERPRETING…' : assessing ? 'COMPARING OPTIONS…' : 'INTERPRET POLICY →'}</button>
         {error && <div className="error-box">{error}</div>}
         <p className="helper"><b>Interpreter: {interpreter?.display || 'Checking backend…'}</b>{interpreter ? ` · ${interpreter.fallback}` : ''}</p><p className="helper">Review every proposed setting before simulation.</p>
       </section>
