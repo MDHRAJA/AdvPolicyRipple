@@ -13,9 +13,9 @@ def test_observed_chennai_has_provenance():
     assert first['value'] == 4646732
 
 def test_chennai_anchor_is_not_behavioral_calibration():
-    result = run(SimulationConfig(population=PopulationConfig(preset='chennai_census_2011', size=100)))
+    result = run(SimulationConfig(population=PopulationConfig(preset='chennai_census_2011', size=10000)))
     anchor = result['observed_data_anchor']
     assert anchor['observed_population'] == 4646732
-    assert anchor['people_per_synthetic_agent'] == 46467.32
+    assert anchor['people_per_synthetic_agent'] == 464.6732
     assert 'trust' in anchor['synthetic_only_variables']
     assert result['evidence_labels']['final'] == 'SIMULATION RESULTS'

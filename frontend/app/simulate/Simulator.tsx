@@ -50,7 +50,7 @@ export default function Simulator() {
     if (token) {
       try {
         const shared = JSON.parse(decodeURIComponent(escape(window.atob(token)))) as SimulationConfig;
-        setPolicy(shared.policy_id); setPreset(shared.population.preset); setSize(shared.population.size); setRounds(shared.rounds); setSeed(shared.seed);
+        setPolicy(shared.policy_id); setPreset(shared.population.preset); setSize(shared.population.size); setRounds(shared.rounds); setSeed(shared.seed); setResult(null);
         const value = Object.values(shared.policy_parameters)[0]; if (typeof value === 'number') setParameter(value);
         if (shared.policy_bundle?.length) setBundle(shared.policy_bundle.filter((item) => item.policy_id !== shared.policy_id));
         if (shared.target_wards?.length) setTargetWards(shared.target_wards);
@@ -58,12 +58,12 @@ export default function Simulator() {
       } catch { setError('Could not read the AI policy configuration.'); }
     }
     const requestedWards = searchParams.get('wards') || searchParams.get('ward');
-    if (requestedWards || searchParams.get('allChennai')) { setPreset('chennai_census_2011'); setTargetWards(requestedWards ? requestedWards.split(',').filter((ward) => /^\d{1,3}$/.test(ward) && Number(ward) >= 1 && Number(ward) <= 200) : []); }
+    if (requestedWards || searchParams.get('allChennai')) { setPreset('chennai_census_2011'); setTargetWards(requestedWards ? requestedWards.split(',').filter((ward) => /^\d{1,3}$/.test(ward) && Number(ward) >= 1 && Number(ward) <= 200) : []); setResult(null); }
     const scenario = searchParams.get('scenario');
     const presetConfig = scenario ? scenarioDefaults[scenario] : undefined;
     if (!presetConfig) return;
     if (presetConfig.policy_id) setPolicy(presetConfig.policy_id);
-    if (presetConfig.population) { setPreset(presetConfig.population.preset); setSize(presetConfig.population.size); }
+    if (presetConfig.population) { setPreset(presetConfig.population.preset); setSize(presetConfig.population.size); setResult(null); }
     if (presetConfig.rounds) setRounds(presetConfig.rounds);
     const value = Object.values(presetConfig.policy_parameters || {})[0];
     if (typeof value === 'number') setParameter(value);
@@ -114,7 +114,7 @@ export default function Simulator() {
       <section className="card p-6">
         <div className="label">01 · Population</div><h2 className="section-title">Choose your agent sample</h2>
         <div className="space-y-4 mt-6">
-          <label className="field"><span>Population preset</span><select className="input" value={preset} onChange={(e) => setPreset(e.target.value)}>{(populations.length ? populations : Object.entries(presets).map(([id, v]) => ({ id, name: v.label, synthetic: true }))).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+          <label className="field"><span>Population preset</span><select className="input" value={preset} onChange={(e) => { setPreset(e.target.value); setResult(null); }}>{(populations.length ? populations : Object.entries(presets).map(([id, v]) => ({ id, name: v.label, synthetic: true }))).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
           <p className="helper">{presets[preset]?.description || 'Synthetic population preset. Select the Chennai option to use its observed Census 2011 population anchor.'}</p>
           {chennaiAnchor && <div className="policy-note"><b>OBSERVED DATA · Chennai Census 2011</b><span>{chennaiAnchor.observed_population.toLocaleString()} people observed; this {chennaiAnchor.synthetic_sample_size.toLocaleString()}-agent sample represents {Math.round(chennaiAnchor.people_per_synthetic_agent).toLocaleString()} people per agent.</span><span>Trust, stress, compliance and resource access remain synthetic assumptions.</span></div>}
           {preset === 'chennai_census_2011' && <div className="policy-note"><b>Ward targeting</b><span>{targetWards.length ? 'Policy effects will be directly applied to Wards ' + targetWards.join(', ') + '. Ward allocation is synthetic.' : 'All Chennai wards are selected: policy applies citywide across the synthetic Chennai sample.'}</span><button className="btn" onClick={() => router.push('/map?wards=' + targetWards.join(',') + (targetWards.length ? '' : '&allChennai=1'))}>Choose wards on map →</button><span className="helper">Select and combine wards directly on the interactive map.</span></div>}
