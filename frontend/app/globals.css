@@ -39,3 +39,18 @@
 .policy-design-loading span{color:var(--muted);line-height:1.5}
 .policy-design-brief .income-impact{font-size:13px;line-height:1.55;color:var(--muted)}
 .policy-design-brief .income-impact em{font-size:11px;margin-top:6px}
+
+.policy-design-brief h3{font-size:23px;letter-spacing:-.025em;margin:8px 0 10px}
+.advice-executive{font-size:14px!important;line-height:1.65!important;color:#d6e2ee!important;margin:0 0 16px!important}
+.advice-section{margin-top:16px;padding-top:14px;border-top:1px solid #1d3047}
+.advice-section>b{display:block;font-size:13px;color:#e8f0f8;margin-bottom:6px}
+.advice-section>p{font-size:13px!important;line-height:1.6!important;color:var(--muted)!important}
+.advice-two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.advice-section ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.6}
+.advice-phase{padding:10px 0;border-bottom:1px solid #1d3047}
+.advice-phase:last-child{border-bottom:0}
+.advice-phase strong,.advice-phase span{display:block}
+.advice-phase strong{font-size:13px;color:#e8f0f8}
+.advice-phase span{margin-top:3px;color:var(--accent);font-size:11px}
+.advice-phase p{font-size:12px!important;line-height:1.55!important;margin:5px 0 0!important;color:var(--muted)!important}
+@media(max-width:700px){.advice-two-col{grid-template-columns:1fr}}
