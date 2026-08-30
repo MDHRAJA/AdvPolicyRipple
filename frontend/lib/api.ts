@@ -112,17 +112,68 @@ export type SimulationResult = {
   [key: string]: unknown;
 };
 
-// Undefined means local development; /backend is used by the Vercel Services deployment.
+// Single canonical API base URL for local development and deployment.
+const LOCAL_API_BASE = 'http://localhost:8001';
 const configuredApi = process.env.NEXT_PUBLIC_API_URL;
 const isLocalBrowser = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const API = configuredApi !== undefined
   ? configuredApi.replace(/\/$/, '')
-  : isLocalBrowser ? 'http://localhost:8000' : '';
+  : isLocalBrowser ? LOCAL_API_BASE : '';
 
 export const ACCESS_TOKEN_KEY = 'policyforge:access-token';
 
 function accessToken() {
   return typeof window === 'undefined' ? null : window.sessionStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+function formatErrorDetail(detail: unknown): string[] {
+  if (Array.isArray(detail)) {
+    return detail.flatMap((item) => {
+      if (typeof item === 'string') return [item];
+      if (item && typeof item === 'object') {
+        const record = item as Record<string, unknown>;
+        const loc = Array.isArray(record.loc) ? record.loc.filter((segment) => typeof segment === 'string').join('.') : '';
+        const msg = typeof record.msg === 'string' ? record.msg.replace(/^Value error, /i, '').replace(/^Field required$/i, 'Required field missing') : '';
+        if (loc && msg) return [`${loc}: ${msg}`];
+        if (msg) return [msg];
+      }
+      return [];
+    });
+  }
+  if (typeof detail === 'string' && detail.trim()) return [detail.trim()];
+  if (detail && typeof detail === 'object') {
+    const record = detail as Record<string, unknown>;
+    const message = typeof record.message === 'string' ? record.message : typeof record.error === 'string' ? record.error : '';
+    if (message) return [message];
+  }
+  return [];
+}
+
+async function parseErrorResponse(response: Response): Promise<string> {
+  const raw = await response.text().catch(() => '');
+  if (!raw.trim()) return `Request failed (${response.status}).`;
+
+  try {
+    const payload = JSON.parse(raw) as unknown;
+    const detail = typeof payload === 'object' && payload !== null
+      ? (payload as { detail?: unknown; message?: unknown; error?: unknown }).detail ?? (payload as { detail?: unknown; message?: unknown; error?: unknown }).message ?? (payload as { detail?: unknown; message?: unknown; error?: unknown }).error ?? ''
+      : typeof payload === 'string'
+        ? payload
+        : '';
+    const details = formatErrorDetail(detail);
+    if (details.length) {
+      const prefix = response.status === 422 ? 'Validation failed' : 'Request failed';
+      return `${prefix} (${response.status}): ${details.join('; ')}`;
+    }
+    if (typeof payload === 'string' && payload.trim()) {
+      return `Request failed (${response.status}): ${payload.trim()}`;
+    }
+  } catch {
+    // Fall back to clean text below.
+  }
+
+  const cleaned = raw.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleaned ? `Request failed (${response.status}): ${cleaned}` : `Request failed (${response.status}).`;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -136,8 +187,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!response.ok) {
-    const message = await response.text().catch(() => 'Request failed');
-    throw new Error(message || `Request failed (${response.status})`);
+    throw new Error(await parseErrorResponse(response));
   }
   return response.json();
 }
