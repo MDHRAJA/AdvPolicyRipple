@@ -91,6 +91,15 @@ export type IncomeGroupImpact = { baseline: Pick<Metrics, 'resource_access' | 's
 
 export type AIInterpreterStatus = { configured: 'gemini' | 'rule_based'; display: string; fallback: string };
 
+export type PolicyTriage = {
+  mode: 'simulation_ready' | 'needs_clarification' | 'outside_catalog';
+  matched_policy_id: string | null;
+  title: string;
+  explanation: string;
+  questions: string[];
+  fallback_note?: string;
+};
+
 export type PolicyAdvice = {
   title: string;
   catalog_fit: 'supported' | 'partially_supported' | 'outside_catalog';
@@ -208,6 +217,7 @@ export const api = {
   verifyAccess: () => request<{ valid: boolean }>('/api/access/verify', { method: 'POST' }),
   policies: () => request<Policy[]>('/api/policies'),
   aiStatus: () => request<AIInterpreterStatus>('/api/ai/status'),
+  triagePolicy: (prompt: string) => request<PolicyTriage>('/api/ai/triage', { method: 'POST', body: JSON.stringify({ prompt }) }),
   planPolicy: (payload: { prompt: string; objectives: string[]; size: number; rounds: number; seed: number }) => request<PolicyPlan>('/api/ai/policy-plan', { method: 'POST', body: JSON.stringify(payload) }),
   policyAdvice: (payload: { prompt: string; objectives: string[] }) => request<PolicyAdvice>('/api/ai/policy-advice', { method: 'POST', body: JSON.stringify(payload) }),
   policyRecommendation: (config: SimulationConfig, objectives: string[]) => request<PolicyRecommendation>('/api/ai/recommendation', { method: 'POST', body: JSON.stringify({ config, objectives }) }),
