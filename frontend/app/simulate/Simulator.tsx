@@ -92,10 +92,13 @@ export default function Simulator() {
   function updateBundleParameter(policyId: string, name: string, value: number) { setBundle((current) => current.map((item) => item.policy_id === policyId ? { ...item, policy_parameters: { [name]: value } } : item)); }
 
   async function runSimulation() {
-    setBusy(true); setError('');
+    // Clear any previous preview before the async request begins so an old chart
+    // cannot flash while this run is being prepared.
+    setResult(null);
+    setBusy(true);
+    setError('');
     try {
       const output = await api.runSession(config);
-      setResult(output);
       if (typeof window !== 'undefined') window.sessionStorage.setItem(
         'policyforge:lastSimulation',
         JSON.stringify({ config, result: output }),
@@ -132,7 +135,7 @@ export default function Simulator() {
           {error && <div className="error-box">{error}</div>}
         </div>
       </section>
-      <section className="card p-6 result-panel"><div className="label">03 · Full results report</div>{!result ? <div className="empty-result"><div className="orbit">◌</div><h2>Your experiment is ready.</h2><p>Run it to open the full report automatically: baseline-versus-policy effects, income-group impacts, trajectories, and seeded model ranges.</p><div className="mini-list"><span>Seeded & reproducible</span><span>Observed context labelled</span><span>Decision support, not a forecast</span></div></div> : <SimulationPreview result={result} />}</section>
+      <section className="card p-6 result-panel"><div className="label">03 · Full results report</div>{busy ? <div className="empty-result" role="status" aria-live="polite"><div className="orbit">◌</div><h2>Preparing your results…</h2><p>PolicyForge is running the experiment and will open the full results report automatically.</p></div> : !result ? <div className="empty-result"><div className="orbit">◌</div><h2>Your experiment is ready.</h2><p>Run it to open the full report automatically: baseline-versus-policy effects, income-group impacts, trajectories, and seeded model ranges.</p><div className="mini-list"><span>Seeded & reproducible</span><span>Observed context labelled</span><span>Decision support, not a forecast</span></div></div> : <SimulationPreview result={result} />}</section>
     </div>
   </main>;
 }
