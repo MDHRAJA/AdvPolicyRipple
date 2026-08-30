@@ -16,7 +16,18 @@ function percentagePointChange(value: number) { return `${value >= 0 ? '+' : ''}
 
 function PolicyAdviceBrief({ advice }: { advice: PolicyAdvice | null }) {
   if (!advice) return <div className="policy-design-loading" role="status"><span className="comparison-loader-mark" aria-hidden="true" /><div><b>Drafting an AI policy proposal</b><span>PolicyForge is preparing a concrete Chennai policy design, not a simulation result.</span></div></div>;
-  return <section className="policy-design-brief"><strong>AI policy proposal · {advice.title}</strong><p>{advice.summary}</p>{advice.recommendations.map((item) => <div key={item.action} className="income-impact"><strong>{item.action}</strong> — {item.detail}<em>Why this is proposed: {item.rationale} Safeguard: {item.safeguard}</em></div>)}<p className="helper">{advice.boundary}</p>{advice.fallback_note ? <p className="helper">{advice.fallback_note}</p> : null}</section>;
+  return <section className="policy-design-brief">
+    <div className="label">AI policy recommendation · {advice.source === 'gemini' ? 'Gemini-assisted' : 'Local policy template'}</div>
+    <h3>{advice.title}</h3>
+    <p className="advice-executive">{advice.executive_recommendation}</p>
+    <div className="advice-section"><b>Recommended policy design</b><p>{advice.policy_design}</p></div>
+    <div className="advice-two-col"><div className="advice-section"><b>Who and where to target</b><p>{advice.targeting}</p></div><div className="advice-section"><b>Funding approach</b><p>{advice.budget_strategy}</p></div></div>
+    <div className="advice-section"><b>Core policy actions</b>{advice.recommendations.map((item) => <div key={item.action} className="income-impact"><strong>{item.action}</strong> — {item.detail}<em>Why this is proposed: {item.rationale} Safeguard: {item.safeguard}</em></div>)}</div>
+    <div className="advice-section"><b>Implementation sequence</b>{advice.implementation_plan.map((item) => <div key={item.phase} className="advice-phase"><strong>{item.phase}</strong><span>{item.timeframe} · {item.owner}</span><p>{item.action}</p></div>)}</div>
+    <div className="advice-two-col"><div className="advice-section"><b>Success measures</b><ul>{advice.success_measures.map((item) => <li key={item}>{item}</li>)}</ul></div><div className="advice-section"><b>Trade-offs to manage</b><ul>{advice.key_tradeoffs.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
+    <div className="advice-section"><b>Decisions needed before launch</b><ul>{advice.decisions_required.map((item) => <li key={item}>{item}</li>)}</ul></div>
+    <p className="helper">{advice.boundary}</p>{advice.fallback_note ? <p className="helper">{advice.fallback_note}</p> : null}
+  </section>;
 }
 
 function PlannerPageContent() {
