@@ -218,12 +218,12 @@ class GeminiUnavailableError(RuntimeError):
     """A safe, user-facing Gemini configuration or response failure."""
 
 
-def _gemini_json(system, prompt, schema, timeout=60.0):
-    """Use the documented Gemini GenerateContent route and return structured JSON."""
+def _gemini_json_for_model(system, prompt, schema, model, timeout=60.0):
+    """Use one Gemini GenerateContent model and return structured JSON."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise GeminiUnavailableError("Gemini is enabled, but the backend Gemini API key is missing.")
-    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+    model = model.strip()
     endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
     structured_request = {
@@ -287,6 +287,47 @@ def _gemini_json(system, prompt, schema, timeout=60.0):
         return json.loads(output)
     except json.JSONDecodeError as error:
         raise GeminiUnavailableError("Gemini returned an invalid policy response. Please try again.") from error
+
+
+def _gemini_model_chain():
+    """Return the configured Gemini-only model order without duplicate calls."""
+    configured = (
+        os.getenv("GEMINI_MODEL", "gemini-3.6-flash"),
+        os.getenv("GEMINI_FALLBACK_MODEL_1", "gemini-3.5-flash"),
+        os.getenv("GEMINI_FALLBACK_MODEL_2", "gemini-3.5-flash-lite"),
+        os.getenv("GEMINI_FALLBACK_MODEL_3", "gemini-3.1-flash-lite"),
+    )
+    models = []
+    for model in configured:
+        normalized = str(model or "").strip()
+        if normalized and normalized not in models:
+            models.append(normalized)
+    return models
+
+
+def _gemini_json(system, prompt, schema, timeout=60.0):
+    """Try the configured Gemini models in order with one validated contract.
+
+    Every model receives the same prompt and schema. Callers still validate the
+    parsed result locally, so a fallback can never change the PolicyForge
+    response shape or bypass its simulation safeguards.
+    """
+    errors = []
+    for model in _gemini_model_chain():
+        try:
+            return _gemini_json_for_model(system, prompt, schema, model, timeout=timeout)
+        except GeminiUnavailableError as error:
+            message = str(error)
+            errors.append(f"{model}: {message}")
+            # An invalid/missing credential cannot be solved by switching models.
+            if "http 401" in message.lower() or "api key" in message.lower():
+                raise
+
+    attempted = ", ".join(_gemini_model_chain())
+    final_detail = errors[-1] if errors else "No Gemini model was configured."
+    raise GeminiUnavailableError(
+        f"Gemini models were unavailable after trying: {attempted}. {final_detail}"
+    )
 
 
 def _interpret_gemini(prompt, objectives):
