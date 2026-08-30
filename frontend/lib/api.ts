@@ -246,7 +246,14 @@ export const api = {
       method: 'POST', body: JSON.stringify({ base_config, policies }),
     }),
   assessment: (config: SimulationConfig) =>
-    request<{ expected_outcome: Metrics; best_case: Metrics; worst_case: Metrics; uncertainty: Metrics; evidence_used: string; limitations: string[] }>('/api/assessment', {
+    request<{
+      expected_outcome: Metrics; best_case: Metrics; worst_case: Metrics; uncertainty: Metrics;
+      policy_effect: {
+        baseline: Metrics; policy: Metrics; change: Metrics; min_change: Metrics; max_change: Metrics;
+        runs: number; range_label: string;
+      };
+      evidence_used: string; limitations: string[];
+    }>('/api/assessment', {
       method: 'POST', body: JSON.stringify({ config }),
     }),
 };
