@@ -295,3 +295,10 @@ def test_triage_marks_explicit_supported_policy_as_simulation_ready():
     result = triage_policy('Reduce household water availability by 25% during a Chennai shortage.')
     assert result['mode'] == 'simulation_ready'
     assert result['matched_policy_id'] == 'water_rationing'
+
+
+def test_policy_advice_gives_specific_boundary_policy_design():
+    advice = policy_advice('Create an administrative delimitation policy for Chennai.', ['build_trust'])
+    assert advice['source'] == 'local_template'
+    assert advice['title'] == 'Administrative boundary review policy'
+    assert all(item['detail'] and item['rationale'] and item['safeguard'] for item in advice['recommendations'])
