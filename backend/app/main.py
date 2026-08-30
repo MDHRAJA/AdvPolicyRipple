@@ -14,7 +14,7 @@ from app.db.store import init_db, create, get, save
 from app.services.observed_data import chennai_calibration_anchor, chennai_metrics, chennai_sources, chennai_summary
 from app.services.wards import chennai_ward_boundaries, ward_profile
 from app.services.policies import list_policies
-from app.services.ai_policy import interpret, recommend, interpreter_status, policy_advice
+from app.services.ai_policy import interpret, recommend, interpreter_status, policy_advice, triage_policy
 from app.services.simulation import PRESETS, run
 
 app = FastAPI(
@@ -343,6 +343,15 @@ def recommendation(payload: dict):
 @app.get("/api/ai/status")
 def ai_status():
     return interpreter_status()
+
+
+@app.post("/api/ai/triage")
+def ai_policy_triage(payload: dict):
+    """Classify a request before selecting any simulation policy."""
+    prompt = str(payload.get("prompt", "")).strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="A policy question is required.")
+    return triage_policy(prompt)
 
 
 @app.post("/api/ai/policy-plan")
