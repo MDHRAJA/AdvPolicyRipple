@@ -456,3 +456,92 @@ def policy_advice(prompt, objectives):
             advice['fallback_note'] = 'Gemini advice was unavailable, so a local policy-design template was used.'
             return advice
     return _advice_template(prompt, objectives)
+
+
+TRIAGE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'mode': {'type': 'string', 'enum': ['simulation_ready', 'needs_clarification', 'outside_catalog']},
+        'matched_policy_id': {'type': 'string', 'enum': [*POLICIES, 'none']},
+        'title': {'type': 'string'},
+        'explanation': {'type': 'string'},
+        'questions': {'type': 'array', 'items': {'type': 'string'}},
+    },
+    'required': ['mode', 'matched_policy_id', 'title', 'explanation', 'questions'],
+}
+
+
+def _triage_rules(prompt):
+    text = prompt.lower()
+    scores = _policy_scores(text)
+    chosen, score = max(scores.items(), key=lambda item: item[1])
+    outside_terms = ('solid waste', 'garbage', 'waste collection', 'segregation', 'air pollution', 'road safety', 'school', 'health clinic', 'crime')
+    if any(term in text for term in outside_terms):
+        return {
+            'mode': 'outside_catalog', 'matched_policy_id': None, 'title': 'This policy is outside the current simulation catalog.',
+            'explanation': 'PolicyForge does not have an evidence-labelled behavioural mechanism for this intervention, so it will not relabel it as an unrelated preset policy.',
+            'questions': ['What outcome should change, and for whom?', 'Which Chennai wards or areas are in scope?', 'What delivery mechanism, budget source, and implementation period are proposed?'],
+        }
+    if score >= 3:
+        return {
+            'mode': 'simulation_ready', 'matched_policy_id': chosen, 'title': 'This request can be represented by the current simulation catalog.',
+            'explanation': 'A supported policy mechanism was identified. You can review it before running a synthetic simulation.',
+            'questions': [],
+        }
+    return {
+        'mode': 'needs_clarification', 'matched_policy_id': chosen if score else None, 'title': 'More policy-design detail is needed before simulation.',
+        'explanation': 'The request overlaps with a service area, but it does not yet define a supported intervention and its direction or magnitude clearly enough for a responsible simulation.',
+        'questions': ['What exactly will change: service availability, household cost, subsidy, or another mechanism?', 'By how much, for how long, and which groups or wards are targeted?', 'What constraint or trade-off should be protected?'],
+    }
+
+
+def _triage_with_gemini(prompt):
+    model = os.getenv('GEMINI_MODEL', 'gemini-3.7-flash')
+    system = (
+        'You are the PolicyForge triage layer. Decide whether a Chennai policy request can be honestly simulated using the existing catalog. '
+        'Do not force an unrelated request into a catalog policy. Use simulation_ready only if the user clearly requests a supported mechanism and amount/direction. '
+        'Use needs_clarification if it is related but mechanism, magnitude, target, or constraint is missing. Use outside_catalog for a genuinely different intervention. '
+        f'Catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}. '
+        'Return up to three short questions only when clarification is needed. Do not make empirical claims.'
+    )
+    response = httpx.post(
+        'https://generativelanguage.googleapis.com/v1beta/interactions',
+        headers={'x-goog-api-key': os.environ['GEMINI_API_KEY'], 'Content-Type': 'application/json'},
+        json={'model': model, 'input': f'{system}\n\nPolicy request: {prompt}', 'store': False, 'response_format': {'type': 'text', 'mime_type': 'application/json', 'schema': TRIAGE_SCHEMA}},
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    output = payload.get('output_text')
+    if not output:
+        for step in reversed(payload.get('steps', [])):
+            for content in step.get('content', []):
+                if content.get('type') == 'text' and content.get('text'):
+                    output = content['text']
+                    break
+            if output:
+                break
+    if not output:
+        raise ValueError('Gemini returned no planner triage.')
+    result = json.loads(output)
+    policy_id = result.get('matched_policy_id')
+    if policy_id not in POLICIES:
+        policy_id = None
+    if result.get('mode') == 'simulation_ready' and not policy_id:
+        result['mode'] = 'needs_clarification'
+        result['questions'] = ['Which supported service mechanism should be modelled?', 'What direction and percentage change should be tested?']
+    result['matched_policy_id'] = policy_id
+    result['questions'] = result.get('questions', [])[:3]
+    return result
+
+
+def triage_policy(prompt):
+    """Classify before planning so outside requests are never silently mislabelled."""
+    if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini' and os.getenv('GEMINI_API_KEY'):
+        try:
+            return _triage_with_gemini(prompt)
+        except Exception:
+            result = _triage_rules(prompt)
+            result['fallback_note'] = 'Gemini triage was unavailable, so PolicyForge used local catalog matching.'
+            return result
+    return _triage_rules(prompt)
