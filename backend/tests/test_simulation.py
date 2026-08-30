@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.models import SimulationConfig, PopulationConfig
 from app.services.simulation import run, metrics, income_group_metrics, ward_metrics
-from app.services.ai_policy import interpret
+from app.services.ai_policy import interpret, policy_advice
 
 def test_reproducible():
     config = SimulationConfig(population=PopulationConfig(size=10000), rounds=5, seed=7)
@@ -274,3 +274,11 @@ def test_ai_policy_plan_recognizes_chennai_ward_target():
 def test_ai_policy_plan_recognizes_multiple_chennai_wards():
     plan = interpret('Chennai wards 92, 93 and 94 need a fair water response', ['improve_access'])
     assert plan['proposed_config']['target_wards'] == ['92', '93', '94']
+
+
+def test_policy_advice_is_explicitly_non_simulated_and_handles_outside_catalog():
+    advice = policy_advice('Chennai needs a ward-level solid-waste collection and segregation programme.', ['improve_access'])
+    assert advice['catalog_fit'] == 'outside_catalog'
+    assert advice['source'] == 'local_template'
+    assert len(advice['recommendations']) == 3
+    assert 'not a simulation result' in advice['boundary'].lower()
