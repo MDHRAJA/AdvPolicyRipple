@@ -472,16 +472,51 @@ def _gemini_advice(prompt, objectives):
     return advice
 
 
+def _enrich_policy_advice(advice, prompt):
+    """Ensure every adviser response has presentation-ready sections, including local fallback."""
+    text = prompt.lower()
+    title = advice.get('title', 'Chennai policy proposal')
+    boundary_topic = any(word in text for word in ('delimitation', 'boundary', 'electoral'))
+    default_design = (
+        'Create an independent, criteria-led administrative boundary review: publish the review criteria, prepare draft options, '
+        'and use a time-bound consultation and objection process before a legally authorised final decision.'
+        if boundary_topic else
+        'Implement the proposed intervention through a time-bound pilot, explicit eligibility and delivery rules, and a documented decision to expand, revise, or stop it.'
+    )
+    defaults = {
+        'executive_recommendation': f'Adopt the proposed {title} as a defined, time-bound policy programme rather than a broad statement of intent. Start with the specified pilot and only scale it after the delivery, equity, and fiscal conditions below are reviewed.',
+        'policy_design': default_design,
+        'targeting': 'Use the geography, groups, and service users stated in the request. Where they are not specified, obtain a sponsor decision before implementation rather than assuming citywide coverage.',
+        'budget_strategy': 'Set a capped pilot envelope and identify the approving budget line before launch. Treat future savings or revenue as provisional until they are evidenced after delivery.',
+        'implementation_plan': [
+            {'phase': '1 · Authorise and design', 'timeframe': 'Weeks 0–4', 'action': 'Approve scope, delivery rules, accountability, and the pilot budget cap.', 'owner': 'Policy sponsor and designated implementing authority'},
+            {'phase': '2 · Pilot delivery', 'timeframe': 'Months 2–4', 'action': 'Run the intervention in the approved scope, publish a service standard, and resolve implementation issues.', 'owner': 'Delivery unit with ward-level coordination'},
+            {'phase': '3 · Review and decide', 'timeframe': 'Month 5', 'action': 'Review outcomes, complaints, costs, and distributional effects; decide whether to scale, revise, or stop.', 'owner': 'Independent review group and policy sponsor'},
+        ],
+        'success_measures': ['Delivery reached the defined target group or area.', 'The stated service or administrative standard was met.', 'Cost remained within the approved pilot cap.', 'Complaints and exclusion risks were documented and resolved.'],
+        'key_tradeoffs': ['A faster rollout can reduce time for consultation and implementation testing.', 'Targeting can improve equity but creates eligibility and communication complexity.'],
+        'decisions_required': ['Confirm the accountable authority and legal route.', 'Confirm the target geography and beneficiary group.', 'Confirm the maximum pilot budget and the decision point for scale-up.'],
+    }
+    for key, value in defaults.items():
+        if not advice.get(key):
+            advice[key] = value
+    advice['implementation_plan'] = advice['implementation_plan'][:3]
+    advice['success_measures'] = advice['success_measures'][:5]
+    advice['key_tradeoffs'] = advice['key_tradeoffs'][:4]
+    advice['decisions_required'] = advice['decisions_required'][:4]
+    return advice
+
+
 def policy_advice(prompt, objectives):
-    """Return advisory content that is never passed to the simulation engine."""
+    """Return detailed advisory content that is never passed to the simulation engine."""
     if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini' and os.getenv('GEMINI_API_KEY'):
         try:
-            return _gemini_advice(prompt, objectives)
+            return _enrich_policy_advice(_gemini_advice(prompt, objectives), prompt)
         except Exception:
             advice = _advice_template(prompt, objectives)
-            advice['fallback_note'] = 'Gemini advice was unavailable, so a local policy-design template was used.'
-            return advice
-    return _advice_template(prompt, objectives)
+            advice['fallback_note'] = 'Gemini advice was unavailable, so a detailed local policy template was used.'
+            return _enrich_policy_advice(advice, prompt)
+    return _enrich_policy_advice(_advice_template(prompt, objectives), prompt)
 
 
 TRIAGE_SCHEMA = {
