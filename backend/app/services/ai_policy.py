@@ -397,6 +397,7 @@ ADVICE_SCHEMA = {
         'success_measures': {'type': 'array', 'items': {'type': 'string'}},
         'key_tradeoffs': {'type': 'array', 'items': {'type': 'string'}},
         'decisions_required': {'type': 'array', 'items': {'type': 'string'}},
+        'follow_up_questions': {'type': 'array', 'items': {'type': 'string'}},
         'recommendations': {'type': 'array', 'items': {'type': 'object', 'properties': {
             'action': {'type': 'string'}, 'detail': {'type': 'string'}, 'rationale': {'type': 'string'}, 'safeguard': {'type': 'string'},
         }, 'required': ['action', 'detail', 'rationale', 'safeguard']}},
@@ -460,6 +461,7 @@ def _advice_template(prompt, objectives):
         'summary': 'This is a policy-design brief, separate from PolicyForge simulation results. Review it with local administrators, affected communities, and relevant technical specialists.',
         'recommendations': [{'action': action, 'detail': detail, 'rationale': rationale, 'safeguard': safeguard} for action, detail, rationale, safeguard in rows],
         'source': 'local_template',
+        'follow_up_questions': [],
         'boundary': 'Policy advice is not a simulation result, legal advice, engineering design, budget approval, or empirical prediction.',
     }
 
@@ -469,7 +471,8 @@ def _gemini_advice(prompt, objectives):
         'You are a senior Chennai municipal-policy agent writing a presentation-grade policy recommendation for a request outside or only partly covered by the simulation catalog. '
         'Be decisive: propose one named policy and explain exactly how it should work. Avoid generic advice such as “assess the issue”, “consider vulnerable groups”, or “collect data” unless it directly enables a named delivery decision. '
         'Return an executive_recommendation of 2–3 sentences; a policy_design that describes the instrument, eligibility, operational mechanism and governance; targeting; a realistic budget_strategy; a three-phase implementation_plan; 3–5 success_measures; 2–4 key_tradeoffs; and 2–4 decisions_required from the sponsor. '
-        'Give exactly three substantive recommendations. Each must name the instrument, target, implementation choice, rationale, and safeguard. Where the prompt lacks a number, location, legal authority, or budget, write a clearly labelled proposed/conditional design choice instead of inventing facts. '
+        'Give exactly three substantive recommendations. Each must name the instrument, target, implementation choice, rationale, safeguard, and a concrete implementation detail such as a threshold, sequence, operating rule, or decision point. Where the request lacks a number, location, legal authority, or budget, state one clearly labelled proposed/conditional design choice instead of inventing facts. '
+        'Set follow_up_questions to an empty array unless a missing fact would materially change the proposed instrument, target, funding route, or governance. When needed, ask at most three concise, request-specific questions; never ask generic questions such as “what outcome”, “which area”, or “what budget”. The policy recommendation must remain useful without an answer. '
         'Do not claim to have consulted data, laws, budgets, agencies, or communities that were not provided. Keep this as an AI proposal, distinct from simulation outputs, and never relabel an outside policy as a catalog intervention. '
         f'Simulation catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}.'
     )
@@ -507,6 +510,7 @@ def _enrich_policy_advice(advice, prompt):
         'success_measures': ['Delivery reached the defined target group or area.', 'The stated service or administrative standard was met.', 'Cost remained within the approved pilot cap.', 'Complaints and exclusion risks were documented and resolved.'],
         'key_tradeoffs': ['A faster rollout can reduce time for consultation and implementation testing.', 'Targeting can improve equity but creates eligibility and communication complexity.'],
         'decisions_required': ['Confirm the accountable authority and legal route.', 'Confirm the target geography and beneficiary group.', 'Confirm the maximum pilot budget and the decision point for scale-up.'],
+        'follow_up_questions': [],
     }
     for key, value in defaults.items():
         if not advice.get(key):
@@ -515,6 +519,7 @@ def _enrich_policy_advice(advice, prompt):
     advice['success_measures'] = advice['success_measures'][:5]
     advice['key_tradeoffs'] = advice['key_tradeoffs'][:4]
     advice['decisions_required'] = advice['decisions_required'][:4]
+    advice['follow_up_questions'] = [question for question in advice.get('follow_up_questions', []) if isinstance(question, str) and question.strip()][:3]
     return advice
 
 

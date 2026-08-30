@@ -112,6 +112,7 @@ export type PolicyAdvice = {
   success_measures: string[];
   key_tradeoffs: string[];
   decisions_required: string[];
+  follow_up_questions: string[];
   recommendations: Array<{ action: string; detail: string; rationale: string; safeguard: string }>;
   source: 'gemini' | 'local_template';
   boundary: string;
