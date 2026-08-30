@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.models import SimulationConfig, PopulationConfig
 from app.services.simulation import run, metrics, income_group_metrics, ward_metrics
-from app.services.ai_policy import interpret, policy_advice
+from app.services.ai_policy import interpret, policy_advice, triage_policy
 
 def test_reproducible():
     config = SimulationConfig(population=PopulationConfig(size=10000), rounds=5, seed=7)
@@ -282,3 +282,16 @@ def test_policy_advice_is_explicitly_non_simulated_and_handles_outside_catalog()
     assert advice['source'] == 'local_template'
     assert len(advice['recommendations']) == 3
     assert 'not a simulation result' in advice['boundary'].lower()
+
+
+def test_triage_does_not_mislabel_outside_catalog_policy_as_water_rationing():
+    result = triage_policy('Create a Chennai solid-waste segregation and door-to-door collection programme.')
+    assert result['mode'] == 'outside_catalog'
+    assert result['matched_policy_id'] is None
+    assert result['questions']
+
+
+def test_triage_marks_explicit_supported_policy_as_simulation_ready():
+    result = triage_policy('Reduce household water availability by 25% during a Chennai shortage.')
+    assert result['mode'] == 'simulation_ready'
+    assert result['matched_policy_id'] == 'water_rationing'
