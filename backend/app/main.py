@@ -14,7 +14,7 @@ from app.db.store import init_db, create, get, save
 from app.services.observed_data import chennai_calibration_anchor, chennai_metrics, chennai_sources, chennai_summary
 from app.services.wards import chennai_ward_boundaries, ward_profile
 from app.services.policies import list_policies
-from app.services.ai_policy import interpret, recommend, interpreter_status, policy_advice, triage_policy
+from app.services.ai_policy import GeminiUnavailableError, interpret, recommend, interpreter_status, policy_advice, triage_policy
 from app.services.simulation import PRESETS, run
 
 app = FastAPI(
@@ -371,7 +371,11 @@ def ai_policy_advice(payload: dict):
     if not prompt:
         raise HTTPException(status_code=422, detail="A policy question is required.")
     objectives = payload.get("objectives", [])
-    return policy_advice(prompt, objectives if isinstance(objectives, list) else [])
+    try:
+        return policy_advice(prompt, objectives if isinstance(objectives, list) else [])
+    except GeminiUnavailableError as error:
+        # Do not silently substitute a local template for an unavailable AI agent.
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 @app.post("/api/ai/recommendation")
