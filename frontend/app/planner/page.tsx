@@ -28,8 +28,8 @@ function reviewedConfig(plan: PolicyPlan): SimulationConfig {
 function PlannerPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [prompt, setPrompt] = useState('Water shortages are affecting low-income Chennai households. Explore a fair 25% response.');
-  const [selected, setSelected] = useState<string[]>(['improve_access', 'reduce_stress', 'reduce_inequality']);
+  const [prompt, setPrompt] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [interpreter, setInterpreter] = useState<AIInterpreterStatus | null>(null);
