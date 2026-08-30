@@ -49,7 +49,7 @@ export default function Simulator() {
     if (token) {
       try {
         const shared = JSON.parse(decodeURIComponent(escape(window.atob(token)))) as SimulationConfig;
-        setPolicy(shared.policy_id); setPreset(shared.population.preset); setSize(shared.population.size); setRounds(shared.rounds); setSeed(shared.seed); setResult(null);
+        setPolicy(shared.policy_id || 'water_rationing'); setPreset(shared.population.preset); setSize(shared.population.size); setRounds(shared.rounds); setSeed(shared.seed); setResult(null);
         const value = Object.values(shared.policy_parameters)[0]; if (typeof value === 'number') setParameter(value);
         if (shared.policy_bundle?.length) setBundle(shared.policy_bundle.filter((item) => item.policy_id !== shared.policy_id));
         if (shared.target_wards?.length) setTargetWards(shared.target_wards);
