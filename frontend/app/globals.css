@@ -54,3 +54,12 @@
 .advice-phase span{margin-top:3px;color:var(--accent);font-size:11px}
 .advice-phase p{font-size:12px!important;line-height:1.55!important;margin:5px 0 0!important;color:var(--muted)!important}
 @media(max-width:700px){.advice-two-col{grid-template-columns:1fr}}
+
+
+/* Paired baseline-versus-policy analysis */
+.baseline-policy-chart{height:330px;margin-top:22px}
+.baseline-policy-ranges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px}
+.baseline-policy-ranges .range-row{margin:0;padding:13px;border:1px solid #20364d;border-radius:12px;background:#091523}
+.baseline-policy-ranges .range-row>div:first-child{display:block}
+.baseline-policy-ranges .range-row span{display:block;margin-top:5px;line-height:1.45}
+@media(max-width:700px){.baseline-policy-chart{height:280px}.baseline-policy-ranges{grid-template-columns:1fr}}
