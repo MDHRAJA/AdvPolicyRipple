@@ -186,7 +186,12 @@ def test_assessment_returns_uncertainty():
     response = client.post('/api/assessment', json={'config': config})
     assert response.status_code == 200
     body = response.json()
-    assert {'expected_outcome', 'best_case', 'worst_case', 'uncertainty'} <= body.keys()
+    assert {'expected_outcome', 'best_case', 'worst_case', 'uncertainty', 'policy_effect'} <= body.keys()
+    effect = body['policy_effect']
+    assert effect['runs'] == 5
+    assert effect['baseline']['resource_access'] > effect['policy']['resource_access']
+    assert effect['min_change']['resource_access'] <= effect['change']['resource_access'] <= effect['max_change']['resource_access']
+    assert 'not a statistical confidence interval' in effect['range_label'].lower()
 
 
 def test_calibration_rejects_synthetic_behavioral_targets():

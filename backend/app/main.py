@@ -305,21 +305,52 @@ def calibration(req: CalibrationRequest):
 
 @app.post("/api/assessment")
 def assessment(req: SimulationCreate):
-    vals = [run(req.config.model_copy(update={"seed": seed}))["final"] for seed in [41, 42, 43, 44, 45]]
-    keys = vals[0]
-    expected = {key: round(sum(item[key] for item in vals) / 5, 4) for key in keys}
-    best = {key: round(max(item[key] for item in vals), 4) for key in keys}
-    worst = {key: round(min(item[key] for item in vals), 4) for key in keys}
+    """Compare policy and no-policy outcomes across paired seeded simulations.
+
+    Each pair begins with the same generated synthetic population. The reported
+    spread is run-to-run model variation, not a statistical confidence interval
+    or an empirical forecast.
+    """
+    seeds = [41, 42, 43, 44, 45]
+    policy_vals, baseline_vals = [], []
+    for seed in seeds:
+        policy_config = req.config.model_copy(update={"seed": seed})
+        baseline_config = policy_config.model_copy(deep=True)
+        baseline_config.policy_id = None
+        baseline_config.policy_parameters = {}
+        baseline_config.policy_bundle = []
+        policy_vals.append(run(policy_config)["final"])
+        baseline_vals.append(run(baseline_config)["final"])
+
+    keys = policy_vals[0]
+    expected = {key: round(sum(item[key] for item in policy_vals) / len(seeds), 4) for key in keys}
+    best = {key: round(max(item[key] for item in policy_vals), 4) for key in keys}
+    worst = {key: round(min(item[key] for item in policy_vals), 4) for key in keys}
+    baseline_expected = {key: round(sum(item[key] for item in baseline_vals) / len(seeds), 4) for key in keys}
+    changes = {
+        key: [policy[key] - baseline[key] for policy, baseline in zip(policy_vals, baseline_vals)]
+        for key in keys
+    }
+    policy_effect = {
+        "baseline": baseline_expected,
+        "policy": expected,
+        "change": {key: round(sum(values) / len(values), 4) for key, values in changes.items()},
+        "min_change": {key: round(min(values), 4) for key, values in changes.items()},
+        "max_change": {key: round(max(values), 4) for key, values in changes.items()},
+        "runs": len(seeds),
+        "range_label": "Paired seeded model range; not a statistical confidence interval.",
+    }
     return {
         "expected_outcome": expected,
         "best_case": best,
         "worst_case": worst,
         "uncertainty": {key: round(best[key] - worst[key], 4) for key in keys},
-        "evidence_used": "Five seeded simulation runs.",
+        "policy_effect": policy_effect,
+        "evidence_used": "Five paired seeded policy-versus-baseline simulation runs.",
         "limitations": [
             "Synthetic agents and behavioral rules.",
             "Observed Chennai data is contextual/anchoring evidence only where explicitly labeled.",
-            "Decision support, not a forecast of actual people.",
+            "The displayed range reflects seeded model variation, not a statistical confidence interval or forecast of actual people.",
         ],
     }
 
