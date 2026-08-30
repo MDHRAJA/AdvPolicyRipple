@@ -415,8 +415,9 @@ def _scenario_clip(value):
 
 def _apply_scenario_changes(metrics, changes, progress=1.0, sensitivity=1.0):
     return {
-        metric: _scenario_clip(metrics[metric] + changes.get(metric, 0) * progress * sensitivity)
-        for metric in changes
+        metric: _scenario_clip(metrics[metric] + changes[metric] * progress * sensitivity)
+        for metric in metrics
+        if metric in changes
     }
 
 
