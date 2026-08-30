@@ -35,7 +35,6 @@ export default function Simulator() {
   const [bundle, setBundle] = useState<PolicySelection[]>([]);
   const [targetWards, setTargetWards] = useState<string[]>([]);
   const [result, setResult] = useState<SimulationResult | null>(null);
-  const [simulationId, setSimulationId] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadingCatalogs, setLoadingCatalogs] = useState(true);
   const [error, setError] = useState('');
@@ -96,7 +95,6 @@ export default function Simulator() {
     setBusy(true); setError('');
     try {
       const output = await api.runSession(config);
-      setSimulationId('session');
       setResult(output);
       if (typeof window !== 'undefined') window.sessionStorage.setItem(
         'policyforge:lastSimulation',
