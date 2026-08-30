@@ -223,7 +223,7 @@ def _gemini_json(system, prompt, schema, timeout=20.0):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise GeminiUnavailableError("Gemini is enabled, but the backend Gemini API key is missing.")
-    model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     try:
         response = httpx.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
