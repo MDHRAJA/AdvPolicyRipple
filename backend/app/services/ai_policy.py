@@ -351,3 +351,108 @@ def recommend(config, objectives):
     if 'build_trust' in objectives: evidence.append(f"trust {best['preview']['trust'] * 100:.1f}%")
     if 'improve_compliance' in objectives: evidence.append(f"compliance {best['preview']['compliance'] * 100:.1f}%")
     return {'recommended': best, 'alternatives': candidates[1:3], 'explanation': f"AI rationale: this option ranked first against {', '.join(objectives).replace('_', ' ')} after comparing individual policies and every supported two-policy bundle. Its modelled profile is {', '.join(evidence)}.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
+
+
+ADVICE_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'title': {'type': 'string'},
+        'catalog_fit': {'type': 'string', 'enum': ['supported', 'partially_supported', 'outside_catalog']},
+        'summary': {'type': 'string'},
+        'recommendations': {'type': 'array', 'items': {'type': 'object', 'properties': {
+            'action': {'type': 'string'}, 'detail': {'type': 'string'}, 'rationale': {'type': 'string'}, 'safeguard': {'type': 'string'},
+        }, 'required': ['action', 'detail', 'rationale', 'safeguard']}},
+    },
+    'required': ['title', 'catalog_fit', 'summary', 'recommendations'],
+}
+
+
+def _advice_catalog_fit(prompt):
+    score = max(_policy_scores(prompt.lower()).values(), default=0)
+    return 'supported' if score >= 3 else 'partially_supported' if score else 'outside_catalog'
+
+
+def _advice_template(prompt, objectives):
+    """Safe, clearly non-simulated fallback policy advice."""
+    text = prompt.lower()
+    if any(word in text for word in ('water', 'drainage', 'flood', 'sewer')):
+        title = 'Water-service and resilience advice'
+        rows = [
+            ('Measure the service gap first', 'Publish a ward-level baseline for supply hours, pressure, quality complaints, and unmet demand.', 'It separates a distribution problem from a total-supply problem.', 'Use aggregated data and protect household privacy.'),
+            ('Prioritise vulnerable households during disruption', 'Use a time-bound contingency plan with a stated drinking-water service standard and grievance route.', 'Uniform cuts can affect households with less storage and fewer alternatives more severely.', 'Define eligibility, communication, and review before rollout.'),
+            ('Reduce losses before new recurring commitments', 'Sequence leak detection, pressure management, and repair verification before expanding permanent subsidies.', 'It can improve delivered service while protecting available funds.', 'Treat savings as estimates until measured after implementation.'),
+        ]
+    elif any(word in text for word in ('rent', 'housing', 'tenant', 'homeless')):
+        title = 'Housing affordability advice'
+        rows = [
+            ('Map rent pressure and displacement risk', 'Use transparent, aggregated indicators for rent burden, eviction risk, and access to work and services.', 'It helps direct support where pressure is greatest.', 'Do not publish household-level risk labels.'),
+            ('Use phased, targeted relief', 'Start with time-limited support or protections for defined high-risk groups, then review before widening.', 'Phasing limits fiscal exposure and permits correction.', 'Specify an end date, appeal process, and funding source.'),
+            ('Pair affordability with supply delivery', 'Coordinate rental supply, serviced land, permitting, and transport access.', 'Price action alone can shift pressure elsewhere.', 'Track displacement and availability alongside rents.'),
+        ]
+    elif any(word in text for word in ('traffic', 'transport', 'bus', 'metro', 'mobility')):
+        title = 'Accessible mobility advice'
+        rows = [
+            ('Identify essential-trip gaps', 'Review waiting time, affordability, first/last-mile access, and safety for essential journeys.', 'It targets access rather than average ridership alone.', 'Include women, disabled people, shift workers, and low-income users.'),
+            ('Pilot a targeted fare or service change', 'Limit the first intervention to a corridor, group, or time window with measurable access outcomes.', 'A pilot creates evidence before recurring expenditure is committed.', 'Publish eligibility and funding rules.'),
+            ('Coordinate fares with reliability', 'Assess service frequency, transfers, safety, and first/last-mile links together.', 'A lower fare cannot solve an inaccessible journey by itself.', 'Do not cut essential services without an equity review.'),
+        ]
+    else:
+        title = 'Chennai policy-design advice'
+        rows = [
+            ('Define the problem and affected groups', 'State the service, geography, affected population, baseline, and decision within municipal control.', 'It prevents treating a symptom as the policy target.', 'Separate observed facts from assumptions.'),
+            ('Design a measurable pilot', 'Specify the intervention, target group, budget ceiling, timeline, mechanism, and success measures.', 'A staged pilot creates evidence before a citywide commitment.', 'Include an exit or revision decision point.'),
+            ('Make equity and funding trade-offs explicit', 'Review potential effects on low-, middle-, and high-income groups and document the funding source.', 'Trade-offs should be reviewed rather than inferred by a model.', 'Do not describe the advice as a forecast or simulation output.'),
+        ]
+    return {
+        'title': title, 'catalog_fit': _advice_catalog_fit(prompt),
+        'summary': 'This is a policy-design brief, separate from PolicyForge simulation results. Review it with local administrators, affected communities, and relevant technical specialists.',
+        'recommendations': [{'action': action, 'detail': detail, 'rationale': rationale, 'safeguard': safeguard} for action, detail, rationale, safeguard in rows],
+        'source': 'local_template',
+        'boundary': 'Policy advice is not a simulation result, legal advice, engineering design, budget approval, or empirical prediction.',
+    }
+
+
+def _gemini_advice(prompt, objectives):
+    model = os.getenv('GEMINI_MODEL', 'gemini-3.7-flash')
+    system = (
+        'You are PolicyForge’s Chennai policy-design adviser. Give practical, cautious advice for requests outside or only partly covered by the simulation catalog. '
+        'Do not claim to have consulted data, laws, budgets, agencies, or community views that were not provided. Do not invent numbers, sources, outcomes, or approvals. '
+        'Give exactly three actions with a concrete detail, rationale, and safeguard. Keep the advice distinct from simulation outputs. '
+        f'Simulation catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}.'
+    )
+    response = httpx.post(
+        'https://generativelanguage.googleapis.com/v1beta/interactions',
+        headers={'x-goog-api-key': os.environ['GEMINI_API_KEY'], 'Content-Type': 'application/json'},
+        json={'model': model, 'input': f'{system}\n\nPolicy question: {prompt}\nObjectives: {objectives}', 'store': False, 'response_format': {'type': 'text', 'mime_type': 'application/json', 'schema': ADVICE_SCHEMA}},
+        timeout=12.0,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    output = payload.get('output_text')
+    if not output:
+        for step in reversed(payload.get('steps', [])):
+            for content in step.get('content', []):
+                if content.get('type') == 'text' and content.get('text'):
+                    output = content['text']
+                    break
+            if output:
+                break
+    if not output:
+        raise ValueError('Gemini returned no policy advice.')
+    advice = json.loads(output)
+    advice['recommendations'] = advice['recommendations'][:3]
+    advice['source'] = 'gemini'
+    advice['boundary'] = 'AI policy advice is not a simulation result, legal advice, engineering design, budget approval, or empirical prediction.'
+    return advice
+
+
+def policy_advice(prompt, objectives):
+    """Return advisory content that is never passed to the simulation engine."""
+    if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini' and os.getenv('GEMINI_API_KEY'):
+        try:
+            return _gemini_advice(prompt, objectives)
+        except Exception:
+            advice = _advice_template(prompt, objectives)
+            advice['fallback_note'] = 'Gemini advice was unavailable, so a local policy-design template was used.'
+            return advice
+    return _advice_template(prompt, objectives)
