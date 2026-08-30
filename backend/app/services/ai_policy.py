@@ -482,7 +482,7 @@ def _triage_rules(prompt):
     text = prompt.lower()
     # Explicit service changes with a percentage are simulation-ready even when
     # they do not contain a catalog label such as "rationing".
-    if 'water' in text and re.search(r'\\b(reduce|cut|lower|decrease)\\b', text) and re.search(r'\\d{1,2}(?:\\.\\d+)?\\s*%', text):
+    if 'water' in text and re.search(r'\b(reduce|cut|lower|decrease)\b', text) and re.search(r'\d{1,2}(?:\.\d+)?\s*%', text):
         return {
             'mode': 'simulation_ready', 'matched_policy_id': 'water_rationing', 'title': 'This request can be represented by the current simulation catalog.',
             'explanation': 'It explicitly specifies a reduction in household water availability and a magnitude.', 'questions': [],
@@ -492,7 +492,7 @@ def _triage_rules(prompt):
             'mode': 'simulation_ready', 'matched_policy_id': 'water_service_restoration', 'title': 'This request can be represented by the current simulation catalog.',
             'explanation': 'It explicitly specifies a restoration in household water availability.', 'questions': [],
         }
-    if any(word in text for word in ('energy', 'electricity', 'power')) and re.search(r'\\b(reduce|cut|lower|decrease)\\b', text) and re.search(r'\\d{1,2}(?:\\.\\d+)?\\s*%', text):
+    if any(word in text for word in ('energy', 'electricity', 'power')) and re.search(r'\b(reduce|cut|lower|decrease)\b', text) and re.search(r'\d{1,2}(?:\.\d+)?\s*%', text):
         return {
             'mode': 'simulation_ready', 'matched_policy_id': 'energy_rationing', 'title': 'This request can be represented by the current simulation catalog.',
             'explanation': 'It explicitly specifies a reduction in electricity availability and a magnitude.', 'questions': [],
