@@ -432,7 +432,7 @@ def recommend(config, objectives):
             final['trust'] if 'build_trust' in objectives else 0,
             final['compliance'] if 'improve_compliance' in objectives else 0,
         ])
-        candidates.append({'policy_id': '+'.join(policy_ids), 'name': ' + '.join(names), 'score': round(score, 4), 'preview': final, 'income_groups': outcome['income_group_impacts'], 'policy_bundle': implementations, 'implementation': implementations[0]})
+        candidates.append({'policy_id': '+'.join(policy_ids), 'name': ' + '.join(names), 'score': round(score, 4), 'preview': final, 'income_groups': outcome['income_group_impacts'], 'policy_bundle': implementations, 'implementation': implementations[0], 'result': outcome})
     candidates.sort(key=lambda item: item['score'], reverse=True)
     best = candidates[0]
     evidence = []
@@ -441,7 +441,11 @@ def recommend(config, objectives):
     if 'reduce_inequality' in objectives: evidence.append(f"inequality {best['preview']['inequality'] * 100:.1f}%")
     if 'build_trust' in objectives: evidence.append(f"trust {best['preview']['trust'] * 100:.1f}%")
     if 'improve_compliance' in objectives: evidence.append(f"compliance {best['preview']['compliance'] * 100:.1f}%")
-    return {'recommended': best, 'alternatives': candidates[1:3], 'explanation': f"AI rationale: this option ranked first against {', '.join(objectives).replace('_', ' ')} after comparing individual policies and every supported two-policy bundle. Its modelled profile is {', '.join(evidence)}.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
+    # The winning run is returned so the planner can open Results without
+    # re-running the identical 10,000-agent configuration. Alternatives keep
+    # their compact preview shape to avoid sending unused full timelines.
+    alternatives = [{key: value for key, value in candidate.items() if key != 'result'} for candidate in candidates[1:3]]
+    return {'recommended': best, 'alternatives': alternatives, 'explanation': f"AI rationale: this option ranked first against {', '.join(objectives).replace('_', ' ')} after comparing individual policies and every supported two-policy bundle. Its modelled profile is {', '.join(evidence)}.", 'boundary': 'Recommendations rank synthetic simulation outputs against user-selected objectives; they are not implementation advice or empirical forecasts.'}
 
 
 ADVICE_SCHEMA = {
