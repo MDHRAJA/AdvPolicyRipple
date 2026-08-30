@@ -9,12 +9,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.models import AccessUnlockRequest, SimulationCreate, SimulationConfig, CompareRequest, CalibrationRequest, PolicyPlanRequest
+from app.core.models import AccessUnlockRequest, SimulationCreate, SimulationConfig, PopulationConfig, CompareRequest, CalibrationRequest, PolicyPlanRequest
 from app.db.store import init_db, create, get, save
 from app.services.observed_data import chennai_calibration_anchor, chennai_metrics, chennai_sources, chennai_summary
 from app.services.wards import chennai_ward_boundaries, ward_profile
 from app.services.policies import list_policies
-from app.services.ai_policy import GeminiUnavailableError, interpret, recommend, interpreter_status, policy_advice, triage_policy
+from app.services.ai_policy import GeminiUnavailableError, exploratory_scenario, interpret, recommend, interpreter_status, policy_advice, triage_policy
 from app.services.simulation import PRESETS, run
 
 app = FastAPI(
@@ -406,6 +406,101 @@ def ai_policy_advice(payload: dict):
         return policy_advice(prompt, objectives if isinstance(objectives, list) else [])
     except GeminiUnavailableError as error:
         # Do not silently substitute a local template for an unavailable AI agent.
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+def _scenario_clip(value):
+    return round(max(0.0, min(1.0, float(value))), 4)
+
+
+def _apply_scenario_changes(metrics, changes, progress=1.0, sensitivity=1.0):
+    return {
+        metric: _scenario_clip(metrics[metric] + changes.get(metric, 0) * progress * sensitivity)
+        for metric in changes
+    }
+
+
+def _exploratory_scenario_result(profile):
+    config = SimulationConfig(
+        population=PopulationConfig(preset='chennai_census_2011', size=10000),
+        policy_id=None,
+        policy_parameters={},
+        rounds=20,
+        seed=42,
+    )
+    baseline = run(config)
+    changes = profile['metric_changes']
+    timeline = []
+    for row in baseline['timeline']:
+        adjusted = _apply_scenario_changes(row, changes, row['round'] / config.rounds)
+        timeline.append({'round': row['round'], **adjusted})
+    final = timeline[-1].copy()
+    final.pop('round', None)
+
+    income_impacts = {}
+    for group, impact in baseline.get('income_group_impacts', {}).items():
+        group_final = _apply_scenario_changes(
+            impact['final'], changes, sensitivity=profile['income_sensitivity'][group],
+        )
+        income_impacts[group] = {
+            'baseline': impact['baseline'],
+            'final': group_final,
+            'change': {
+                metric: round(group_final[metric] - impact['baseline'][metric], 4)
+                for metric in group_final
+            },
+        }
+
+    baseline_final = baseline['final']
+    changes_from_baseline = {metric: round(final[metric] - baseline_final[metric], 4) for metric in final}
+    adverse = max(0, changes_from_baseline['stress']) + max(0, changes_from_baseline['inequality']) + max(0, changes_from_baseline['relocation'])
+    unintended = round(min(100, baseline['unintended_consequence_score'] + adverse * 100), 2)
+    assessment = {
+        'expected_outcome': final,
+        'best_case': final,
+        'worst_case': final,
+        'uncertainty': {metric: 0.0 for metric in final},
+        'policy_effect': {
+            'baseline': baseline_final,
+            'policy': final,
+            'change': changes_from_baseline,
+            'min_change': changes_from_baseline,
+            'max_change': changes_from_baseline,
+            'runs': 1,
+            'range_label': 'AI assumption-driven scenario; this is not an empirical estimate, forecast, or statistical confidence interval.',
+        },
+        'evidence_used': 'Chennai Census 2011 anchors the synthetic population; Gemini-generated assumptions define the out-of-catalog policy scenario.',
+        'limitations': [
+            'The policy mechanism and effect sizes are AI-generated assumptions, not observed evidence.',
+            'Census 2011 anchors population context only; it does not establish policy causality.',
+            'Results change when the stated AI assumptions change and must not be treated as a forecast of real people.',
+        ],
+    }
+    result = {
+        **baseline,
+        'timeline': timeline,
+        'final': final,
+        'income_group_impacts': income_impacts,
+        'unintended_consequence_score': unintended,
+        'scenario_mode': 'AI_ASSUMPTION_DRIVEN',
+        'exploratory_scenario': profile,
+        'exploratory_assessment': assessment,
+    }
+    return config, result
+
+
+@app.post("/api/ai/exploratory-scenario")
+def ai_exploratory_scenario(payload: dict):
+    """Create a clearly labelled exploratory graph for an out-of-catalog policy."""
+    prompt = str(payload.get('prompt', '')).strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail='A policy question is required.')
+    objectives = payload.get('objectives', [])
+    try:
+        profile = exploratory_scenario(prompt, objectives if isinstance(objectives, list) else [])
+        config, result = _exploratory_scenario_result(profile)
+        return {'config': config.model_dump(), 'result': result}
+    except GeminiUnavailableError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
 
 
