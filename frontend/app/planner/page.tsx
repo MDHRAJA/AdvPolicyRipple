@@ -72,7 +72,9 @@ function PlannerPageContent() {
         const recommendation = await api.policyRecommendation(plan.proposed_config, plan.objectives);
         const completePlan = { ...plan, recommendation };
         const config = reviewedConfig(completePlan);
-        const result = await api.runSession(config);
+        // recommend() already simulated this exact winning configuration.
+        // Reuse that outcome rather than performing an identical second run.
+        const result = recommendation.recommended.result;
         const adviceState = await advicePromise;
         saveAndOpen(config, result, { prompt: policyQuestion, objectives: selected, triage, plan: completePlan, ...adviceState });
         return;
