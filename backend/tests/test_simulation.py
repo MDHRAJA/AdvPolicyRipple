@@ -351,9 +351,36 @@ def test_gemini_flash_request_uses_generate_content_without_deprecated_sampling(
     monkeypatch.delenv('GEMINI_MODEL', raising=False)
     monkeypatch.setattr(ai_policy.httpx, 'post', fake_post)
     assert ai_policy._gemini_json('system', 'prompt', {'type': 'object'}) == {'ok': True}
-    assert '/models/gemini-3.5-flash:generateContent' in captured['url']
+    assert '/models/gemini-3.6-flash:generateContent' in captured['url']
     assert captured['json']['generationConfig']['responseMimeType'] == 'application/json'
     assert 'temperature' not in captured['json']['generationConfig']
+
+
+
+def test_gemini_uses_requested_fallback_order(monkeypatch):
+    from app.services import ai_policy
+
+    attempted = []
+
+    def fake_request(system, prompt, schema, model, timeout):
+        attempted.append(model)
+        if len(attempted) < 4:
+            raise ai_policy.GeminiUnavailableError("Gemini request failed with HTTP 429.")
+        return {"ok": True}
+
+    monkeypatch.setenv('GEMINI_MODEL', 'gemini-3.6-flash')
+    monkeypatch.delenv('GEMINI_FALLBACK_MODEL_1', raising=False)
+    monkeypatch.delenv('GEMINI_FALLBACK_MODEL_2', raising=False)
+    monkeypatch.delenv('GEMINI_FALLBACK_MODEL_3', raising=False)
+    monkeypatch.setattr(ai_policy, '_gemini_json_for_model', fake_request)
+
+    assert ai_policy._gemini_json('system', 'prompt', {'type': 'object'}) == {'ok': True}
+    assert attempted == [
+        'gemini-3.6-flash',
+        'gemini-3.5-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+    ]
 
 
 
