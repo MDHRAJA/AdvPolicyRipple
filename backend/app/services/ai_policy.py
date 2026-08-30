@@ -396,6 +396,13 @@ def _advice_template(prompt, objectives):
             ('Pilot ward-level operational changes', 'Test route design, collection timing, material handling, and resident communication in a small set of wards.', 'Pilots identify delivery constraints before citywide rollout.', 'Track worker safety, inclusion of informal workers, and missed-service complaints.'),
             ('Create feedback and verification loops', 'Provide an accessible complaint route and independently review service completion and disposal practices.', 'Visible feedback improves correction and trust.', 'Do not treat app reports alone as representative of households without smartphones.'),
         ]
+    elif any(word in text for word in ('delimitation', 'boundary', 'electoral', 'administrative boundary')):
+        title = 'Administrative boundary review policy'
+        rows = [
+            ('Adopt a service-first boundary review mandate', 'Frame the proposal around equal access to municipal services, administrative workload, and accountable representation—not merely redrawing lines.', 'A service-first mandate gives the review a clear public purpose.', 'Keep the final decision with the legally authorised body and publish the review criteria.'),
+            ('Use an independent, criteria-based review panel', 'Set out transparent criteria such as population balance, community continuity, service catchments, and geographic contiguity before draft boundaries are produced.', 'Pre-agreed criteria reduce discretionary or politically selective changes.', 'Require conflict-of-interest declarations and publish all deviations from the criteria.'),
+            ('Run a staged consultation and objection process', 'Release draft options, allow written objections, hold accessible ward-level hearings, and publish a response to material objections before finalisation.', 'It creates a traceable route for affected communities to challenge proposals.', 'Provide non-digital participation routes and translated or accessible materials where needed.'),
+        ]
     elif any(word in text for word in ('traffic', 'transport', 'bus', 'metro', 'mobility')):
         title = 'Accessible mobility advice'
         rows = [
@@ -422,9 +429,11 @@ def _advice_template(prompt, objectives):
 def _gemini_advice(prompt, objectives):
     model = os.getenv('GEMINI_MODEL', 'gemini-3.7-flash')
     system = (
-        'You are PolicyForge’s Chennai policy-design adviser. Give practical, cautious advice for requests outside or only partly covered by the simulation catalog. '
-        'Do not claim to have consulted data, laws, budgets, agencies, or community views that were not provided. Do not invent numbers, sources, outcomes, or approvals. '
-        'Give exactly three actions with a concrete detail, rationale, and safeguard. Keep the advice distinct from simulation outputs. '
+        'You are a senior Chennai municipal-policy agent. Produce a decision-ready policy proposal for a request outside or only partly covered by the simulation catalog. '
+        'Do not give generic advice such as “assess the issue”, “consider vulnerable groups”, or “collect data” unless it is tied to a concrete policy decision. '
+        'Name the proposed policy in the title. Then recommend exactly three substantive actions. Each action must state the instrument to use, who or what it targets, an implementation choice, why it addresses the stated problem, and one realistic safeguard or trade-off. '
+        'When the request lacks a necessary number, location, legal authority, or budget, state a proposed design choice as conditional and ask for it in the interactive questions; never invent facts, sources, legal powers, budgets, outcomes, or approvals. '
+        'Keep the proposal separate from simulation outputs and do not relabel an outside policy as a catalog intervention. '
         f'Simulation catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}.'
     )
     response = httpx.post(
