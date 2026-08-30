@@ -224,20 +224,38 @@ def _gemini_json(system, prompt, schema, timeout=60.0):
     if not api_key:
         raise GeminiUnavailableError("Gemini is enabled, but the backend Gemini API key is missing.")
     model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
+    structured_request = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": schema,
+        },
+    }
     try:
-        response = httpx.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-            json={
-                "systemInstruction": {"parts": [{"text": system}]},
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                    "responseSchema": schema,
+        response = httpx.post(endpoint, headers=headers, json=structured_request, timeout=timeout)
+
+        # Some Gemini projects accept API-key authentication for ordinary JSON
+        # generation but reject the advanced response-schema route. Retry with
+        # an equivalent JSON-only prompt rather than treating a working key as
+        # unavailable. Parsed output is still validated locally by the caller.
+        if response.status_code in {400, 401, 403}:
+            plain_json_prompt = (
+                f"{system}\n\n{prompt}\n\n"
+                "Return only valid JSON that satisfies this schema:\n"
+                f"{json.dumps(schema)}"
+            )
+            response = httpx.post(
+                endpoint,
+                headers=headers,
+                json={
+                    "contents": [{"role": "user", "parts": [{"text": plain_json_prompt}]}],
+                    "generationConfig": {"responseMimeType": "application/json"},
                 },
-            },
-            timeout=timeout,
-        )
+                timeout=timeout,
+            )
         response.raise_for_status()
         payload = response.json()
     except httpx.TimeoutException as error:
