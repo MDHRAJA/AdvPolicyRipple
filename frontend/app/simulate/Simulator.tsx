@@ -102,6 +102,7 @@ export default function Simulator() {
         'policyforge:lastSimulation',
         JSON.stringify({ config, result: output }),
       );
+      router.push('/results');
     } catch (e) { setError(e instanceof Error ? e.message : 'Simulation failed.'); }
     finally { setBusy(false); }
   }
@@ -109,7 +110,7 @@ export default function Simulator() {
   if (loadingCatalogs) return <main className="page-shell"><div className="loading-card">Loading simulation workspace…</div></main>;
 
   return <main className="page-shell">
-    <div className="page-heading"><div><div className="label">Simulation workspace</div><h1>Design a policy experiment.</h1><p>Change one policy, run a seeded synthetic society, and inspect the second-order effects.</p></div>{simulationId && <button className="btn" onClick={() => router.push('/results')}>Open full results →</button>}</div>
+    <div className="page-heading"><div><div className="label">Simulation workspace</div><h1>Design a policy experiment.</h1><p>Change one policy, run a seeded synthetic society, and open the full evidence-labelled results report automatically.</p></div></div>
     <div className="workspace-grid">
       <section className="card p-6">
         <div className="label">01 · Population</div><h2 className="section-title">Choose your agent sample</h2>
@@ -129,11 +130,11 @@ export default function Simulator() {
           {bundle.map((entry) => { const companion = policies.find((item) => item.id === entry.policy_id); const companionParameter = companion ? Object.keys(companion.parameters)[0] : 'parameter'; const value = entry.policy_parameters[companionParameter] ?? 0; return <div className="policy-note" key={entry.policy_id}><b>{companion?.name}</b><span>{companion?.description}</span><label className="field"><span>{companionParameter.replace('_', ' ')} <b>{Math.round(value * 100)}%</b></span><input className="range" type="range" min={companionParameter === 'cost_change' ? -0.5 : 0} max={companionParameter === 'cost_change' ? 0.25 : 0.8} step="0.05" value={value} onChange={(e) => updateBundleParameter(entry.policy_id, companionParameter, Number(e.target.value))}/></label><button className="btn" onClick={() => setBundle([])}>Remove companion</button></div>; })}
           <div className="experiment-readiness"><div className="label">Ready to test</div><b>{selectedPolicy?.name || 'Selected policy'} · {Math.round(Math.abs(parameter) * 100)}% {parameter < 0 ? 'decrease' : 'change'}</b><span>{preset === 'chennai_census_2011' ? targetWards.length ? 'Target: Chennai Wards ' + targetWards.join(', ') : 'Target: all Chennai wards' : 'Target: synthetic city sample'} · {rounds} rounds · seed {seed}</span></div>
           <div className="two-col"><label className="field"><span>Seed</span><input className="input" type="number" value={seed} onChange={(e) => setSeed(Number(e.target.value))}/></label><label className="field"><span>Neighborhoods</span><input className="input muted-input" type="number" value={8} disabled /></label></div>
-          <button className="btn primary run-button" onClick={runSimulation} disabled={busy}>{busy ? 'SIMULATING…' : 'RUN POLICYFORGE EXPERIMENT →'}</button>
+          <button className="btn primary run-button" onClick={runSimulation} disabled={busy}>{busy ? 'SIMULATING…' : 'RUN EXPERIMENT & VIEW RESULTS →'}</button>
           {error && <div className="error-box">{error}</div>}
         </div>
       </section>
-      <section className="card p-6 result-panel"><div className="label">03 · Live output</div>{!result ? <div className="empty-result"><div className="orbit">◌</div><h2>Your experiment is ready.</h2><p>Configure the scenario on the left, then run it to see resource access, inequality, stress, trust and compliance evolve over time.</p><div className="mini-list"><span>Seeded & reproducible</span><span>Bounded synthetic agents</span><span>Decision support, not a forecast</span></div></div> : <SimulationPreview result={result} />}</section>
+      <section className="card p-6 result-panel"><div className="label">03 · Full results report</div>{!result ? <div className="empty-result"><div className="orbit">◌</div><h2>Your experiment is ready.</h2><p>Run it to open the full report automatically: baseline-versus-policy effects, income-group impacts, trajectories, and seeded model ranges.</p><div className="mini-list"><span>Seeded & reproducible</span><span>Observed context labelled</span><span>Decision support, not a forecast</span></div></div> : <SimulationPreview result={result} />}</section>
     </div>
   </main>;
 }
