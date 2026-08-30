@@ -27,6 +27,7 @@ function PolicyAdviceBrief({ advice, error, onRetry }: { advice: PolicyAdvice | 
     <div className="advice-section"><b>Implementation sequence</b>{advice.implementation_plan.map((item) => <div key={item.phase} className="advice-phase"><strong>{item.phase}</strong><span>{item.timeframe} · {item.owner}</span><p>{item.action}</p></div>)}</div>
     <div className="advice-two-col"><div className="advice-section"><b>Success measures</b><ul>{advice.success_measures.map((item) => <li key={item}>{item}</li>)}</ul></div><div className="advice-section"><b>Trade-offs to manage</b><ul>{advice.key_tradeoffs.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
     <div className="advice-section"><b>Decisions needed before launch</b><ul>{advice.decisions_required.map((item) => <li key={item}>{item}</li>)}</ul></div>
+    {advice.follow_up_questions.length ? <div className="advice-section"><b>What the AI needs to refine this proposal</b><ul>{advice.follow_up_questions.map((question) => <li key={question}>{question}</li>)}</ul><p>Update the policy question with those details, then interpret it again.</p></div> : null}
     <p className="helper">{advice.boundary}</p>{advice.fallback_note ? <p className="helper">{advice.fallback_note}</p> : null}
   </section>;
 }
@@ -40,7 +41,6 @@ function PlannerPageContent() {
   const [advice, setAdvice] = useState<PolicyAdvice | null>(null);
   const [adviceError, setAdviceError] = useState('');
   const [triage, setTriage] = useState<PolicyTriage | null>(null);
-  const [answers, setAnswers] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [assessing, setAssessing] = useState(false);
@@ -59,7 +59,7 @@ function PlannerPageContent() {
     }
   }
   async function interpret(policyQuestion = prompt) {
-    setBusy(true); setError(''); setPlan(null); setAdvice(null); setAdviceError(''); setTriage(null); setAnswers([]);
+    setBusy(true); setError(''); setPlan(null); setAdvice(null); setAdviceError(''); setTriage(null);
     try {
       const triageResult = await api.triagePolicy(policyQuestion);
       setTriage(triageResult);
@@ -69,7 +69,7 @@ function PlannerPageContent() {
       }
       const quickPlan = await api.planPolicy({ prompt: policyQuestion, objectives: selected, size: 10000, rounds: 20, seed: 42 });
       setPlan(quickPlan);
-      void api.policyAdvice({ prompt: policyQuestion, objectives: selected }).then(setAdvice).catch(() => setAdvice(null));
+      void loadAdvice(policyQuestion);
       setAssessing(true);
       void api.policyRecommendation(quickPlan.proposed_config, quickPlan.objectives)
         .then((recommendation) => setPlan((current) => current ? { ...current, recommendation } : current))
@@ -78,14 +78,6 @@ function PlannerPageContent() {
     }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not assess this policy request.'); }
     finally { setBusy(false); }
-  }
-  function refineAdvice() {
-    if (!triage) return;
-    const detail = triage.questions.map((question, index) => answers[index]?.trim() ? `${question} ${answers[index].trim()}` : '').filter(Boolean).join('\n');
-    if (!detail) { setError('Answer at least one design question before continuing.'); return; }
-    const refinedPrompt = `${prompt}\n\nAdditional policy-design details:\n${detail}`;
-    setPrompt(refinedPrompt);
-    void interpret(refinedPrompt);
   }
   function apply() {
     if (!plan?.recommendation) return;
@@ -114,10 +106,10 @@ function PlannerPageContent() {
       </section>
       <section className="card p-6">
         <div className="label">02 · AI policy brief</div>
-        {!plan ? triage ? <div className="planner-empty"><span>✦</span><h2>{triage.title}</h2><p>{triage.explanation}</p><div className="label planner-label">{triage.mode === 'outside_catalog' ? 'Policy-design route' : 'Clarification required'}</div><PolicyAdviceBrief advice={advice} error={adviceError} onRetry={() => void loadAdvice(prompt)} />{triage.questions.length ? <div className="space-y-4 mt-6">{triage.questions.map((question, index) => <label className="field" key={question}><span>{index + 1}. {question}</span><textarea className="planner-textarea" value={answers[index] || ''} onChange={(event) => setAnswers((current) => { const next = [...current]; next[index] = event.target.value; return next; })} /></label>)}<button className="btn primary planner-run" onClick={refineAdvice} disabled={busy}>{busy ? 'REASSESSING…' : 'REFINE POLICY DESIGN →'}</button></div> : null}<p className="helper">No preset policy or simulated result is shown until the request has a supported, explicit mechanism that can be reviewed.</p></div> : <div className="planner-empty"><span>✦</span><h2>Waiting for a policy question.</h2><p>Describe a local problem, choose priorities, and PolicyForge will decide whether it can create a simulation-ready proposal or needs a separate policy-design brief. To target a location, include a valid Chennai ward number—for example, “Chennai Ward 92”.</p></div> : <>
+        {!plan ? triage ? <div className="planner-empty"><span>✦</span><h2>{triage.title}</h2><p>{triage.explanation}</p><div className="label planner-label">AI policy-design route</div><PolicyAdviceBrief advice={advice} error={adviceError} onRetry={() => void loadAdvice(prompt)} /><p className="helper">No preset policy or simulated result is shown until the request has a supported, explicit mechanism that can be reviewed.</p></div> : <div className="planner-empty"><span>✦</span><h2>Waiting for a policy question.</h2><p>Describe a local problem, choose priorities, and PolicyForge will decide whether it can create a simulation-ready proposal or needs a separate policy-design brief. To target a location, include a valid Chennai ward number—for example, “Chennai Ward 92”.</p></div> : <>
           <h2 className="section-title">{plan.matched_policy.name}</h2>
           <p className="helper">{plan.interpretation}</p><p className="helper">Interpretation source: {plan.interpretation_source === 'gemini' ? 'Gemini-assisted, validated against PolicyForge policy limits' : 'Local rule-based fallback'}. Simulation metrics are always generated by PolicyForge.</p>
-          <div className="plan-summary"><div><span>Population basis</span><b>{plan.policy_detail.population_basis}</b></div>{plan.policy_detail.population_basis.includes('Chennai') ? <div><span>Ward target</span><b>{plan.proposed_config.target_wards?.length ? 'Wards ' + plan.proposed_config.target_wards.join(', ') : 'All Chennai wards'}</b></div> : null}</div><div className="policy-note"><b>Proposed policy · {plan.matched_policy.name}</b><span>{plan.matched_policy.description} Parameter: {plan.policy_detail.parameter.replaceAll('_', ' ')} at {plan.policy_detail.value_percent}%.</span></div><div className="policy-note"><b>Our primary concern</b><span>{plan.objectives.map((item) => item.replaceAll('_', ' ')).join(', ')}</span></div>{plan.fiscal_consideration ? <div className="policy-note"><b>Funding consideration</b><span>{plan.fiscal_consideration}</span></div> : null}<div className="label planner-label">AI policy proposal</div><PolicyAdviceBrief advice={advice} />
+          <div className="plan-summary"><div><span>Population basis</span><b>{plan.policy_detail.population_basis}</b></div>{plan.policy_detail.population_basis.includes('Chennai') ? <div><span>Ward target</span><b>{plan.proposed_config.target_wards?.length ? 'Wards ' + plan.proposed_config.target_wards.join(', ') : 'All Chennai wards'}</b></div> : null}</div><div className="policy-note"><b>Proposed policy · {plan.matched_policy.name}</b><span>{plan.matched_policy.description} Parameter: {plan.policy_detail.parameter.replaceAll('_', ' ')} at {plan.policy_detail.value_percent}%.</span></div><div className="policy-note"><b>Our primary concern</b><span>{plan.objectives.map((item) => item.replaceAll('_', ' ')).join(', ')}</span></div>{plan.fiscal_consideration ? <div className="policy-note"><b>Funding consideration</b><span>{plan.fiscal_consideration}</span></div> : null}<div className="label planner-label">AI policy proposal</div><PolicyAdviceBrief advice={advice} error={adviceError} onRetry={() => void loadAdvice(prompt)} />
           {!plan.recommendation ? <div className="comparison-loader" role="status" aria-live="polite"><span className="comparison-loader-mark" aria-hidden="true" /><div><b>Assessing policy options</b><span>Comparing individual policies and combinations. Your detailed recommendation will appear here shortly.</span></div></div> : <>
           <div className="policy-note"><b>Recommended option · {plan.recommendation.recommended.name}</b><span>{plan.recommendation.explanation}</span></div>
           <div className="policy-note"><b>{plan.recommendation.recommended.policy_bundle.length > 1 ? 'Recommended policy combination' : 'Recommended percentage change'}</b><span>{plan.recommendation.recommended.policy_bundle.map((item) => <span key={item.policy_id} className="income-impact"><strong>{item.name}</strong> — {item.instruction}</span>)}</span></div>
