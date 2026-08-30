@@ -333,6 +333,8 @@ def test_gemini_flash_request_uses_generate_content_without_deprecated_sampling(
     from app.services import ai_policy
 
     class Response:
+        status_code = 200
+
         def raise_for_status(self):
             return None
 
