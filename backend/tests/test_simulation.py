@@ -321,3 +321,28 @@ def test_gemini_policy_advice_does_not_silently_return_a_local_template(monkeypa
     })
     assert response.status_code == 503
     assert 'Gemini' in response.json()['detail']
+
+
+def test_gemini_36_request_uses_generate_content_without_deprecated_sampling(monkeypatch):
+    from app.services import ai_policy
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {'candidates': [{'content': {'parts': [{'text': '{"ok": true}'}]}}]}
+
+    captured = {}
+
+    def fake_post(url, headers, json, timeout):
+        captured.update({'url': url, 'headers': headers, 'json': json, 'timeout': timeout})
+        return Response()
+
+    monkeypatch.setenv('GEMINI_API_KEY', 'test-key')
+    monkeypatch.delenv('GEMINI_MODEL', raising=False)
+    monkeypatch.setattr(ai_policy.httpx, 'post', fake_post)
+    assert ai_policy._gemini_json('system', 'prompt', {'type': 'object'}) == {'ok': True}
+    assert '/models/gemini-3.6-flash:generateContent' in captured['url']
+    assert captured['json']['generationConfig']['responseMimeType'] == 'application/json'
+    assert 'temperature' not in captured['json']['generationConfig']
