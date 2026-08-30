@@ -596,7 +596,7 @@ def exploratory_scenario(prompt, objectives):
         raise GeminiUnavailableError('Exploratory AI scenarios require Gemini to be enabled on the backend.')
 
     system = (
-        'You are PolicyForge's exploratory-scenario designer for a Chennai policy outside the validated simulation catalog. '
+        "You are PolicyForge's exploratory-scenario designer for a Chennai policy outside the validated simulation catalog. "
         'Produce transparent modelling assumptions, not evidence or a forecast. '
         'Use small, bounded end-state changes (between -0.15 and 0.15) for each supplied synthetic metric. '
         'Positive stress, inequality, and relocation changes are adverse; positive resource access, satisfaction, policy support, '
