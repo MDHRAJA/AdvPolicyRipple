@@ -354,3 +354,37 @@ def test_gemini_flash_request_uses_generate_content_without_deprecated_sampling(
     assert '/models/gemini-3.5-flash:generateContent' in captured['url']
     assert captured['json']['generationConfig']['responseMimeType'] == 'application/json'
     assert 'temperature' not in captured['json']['generationConfig']
+
+
+
+def test_exploratory_ai_scenario_is_clearly_labelled_and_census_anchored(monkeypatch):
+    from app import main as main_module
+
+    profile = {
+        'title': 'Exploratory Chennai delimitation scenario',
+        'summary': 'A transparent hypothetical scenario for reviewing a service-first boundary process.',
+        'assumptions': ['The process increases trust through transparent criteria.'],
+        'metric_changes': {
+            'resource_access': 0.01, 'inequality': -0.01, 'stress': -0.01,
+            'satisfaction': 0.02, 'policy_support': 0.02, 'compliance': 0.01,
+            'trust': 0.04, 'relocation': 0.0, 'cooperation': 0.03,
+        },
+        'income_sensitivity': {'low': 1.2, 'middle': 1.0, 'high': 0.8},
+        'evidence_type': 'AI ASSUMPTION-DRIVEN SCENARIO',
+        'source': 'gemini',
+    }
+    monkeypatch.setattr(main_module, 'exploratory_scenario', lambda prompt, objectives: profile)
+    client = TestClient(app)
+    response = client.post('/api/ai/exploratory-scenario', json={
+        'prompt': 'Delimitation for Chennai citywide. Simulate as well.',
+        'objectives': ['build_trust'],
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body['config']['population']['preset'] == 'chennai_census_2011'
+    assert body['result']['scenario_mode'] == 'AI_ASSUMPTION_DRIVEN'
+    assert body['result']['exploratory_scenario']['evidence_type'] == 'AI ASSUMPTION-DRIVEN SCENARIO'
+    assert body['result']['observed_data_anchor']['evidence_type'] == 'OBSERVED DATA'
+    assert len(body['result']['timeline']) == 20
+    assert 'not an empirical estimate' in body['result']['exploratory_assessment']['policy_effect']['range_label'].lower()

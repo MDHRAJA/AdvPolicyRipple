@@ -53,7 +53,7 @@ export type PolicySelection = { policy_id: string; policy_parameters: Record<str
 
 export type SimulationConfig = {
   population: { preset: string; size: number; neighborhoods: number };
-  policy_id: string;
+  policy_id: string | null;
   policy_parameters: Record<string, number>;
   policy_bundle?: PolicySelection[];
   target_wards?: string[];
@@ -137,7 +137,33 @@ export type SimulationResult = {
   ward_impact_evidence_type?: 'SIMULATION OUTPUT';
   policy_bundle?: string[];
   target_wards?: string[];
+  scenario_mode?: 'AI_ASSUMPTION_DRIVEN';
+  exploratory_scenario?: ExploratoryScenario;
+  exploratory_assessment?: ScenarioAssessment;
   [key: string]: unknown;
+};
+
+export type ExploratoryScenario = {
+  title: string;
+  summary: string;
+  assumptions: string[];
+  metric_changes: Partial<Metrics>;
+  income_sensitivity: Record<'low' | 'middle' | 'high', number>;
+  evidence_type: 'AI ASSUMPTION-DRIVEN SCENARIO';
+  source: 'gemini';
+};
+
+export type ScenarioAssessment = {
+  expected_outcome: Metrics;
+  best_case: Metrics;
+  worst_case: Metrics;
+  uncertainty: Metrics;
+  policy_effect: {
+    baseline: Metrics; policy: Metrics; change: Metrics; min_change: Metrics; max_change: Metrics;
+    runs: number; range_label: string;
+  };
+  evidence_used: string;
+  limitations: string[];
 };
 
 // Single canonical API base URL for local development and deployment.
@@ -230,6 +256,7 @@ export const api = {
   planPolicy: (payload: { prompt: string; objectives: string[]; size: number; rounds: number; seed: number }) => request<PolicyPlan>('/api/ai/policy-plan', { method: 'POST', body: JSON.stringify(payload) }),
   policyAdvice: (payload: { prompt: string; objectives: string[] }) => request<PolicyAdvice>('/api/ai/policy-advice', { method: 'POST', body: JSON.stringify(payload) }),
   policyRecommendation: (config: SimulationConfig, objectives: string[]) => request<PolicyRecommendation>('/api/ai/recommendation', { method: 'POST', body: JSON.stringify({ config, objectives }) }),
+  exploratoryScenario: (payload: { prompt: string; objectives: string[] }) => request<{ config: SimulationConfig; result: SimulationResult }>('/api/ai/exploratory-scenario', { method: 'POST', body: JSON.stringify(payload) }),
   populations: () => request<Population[]>('/api/populations'),
   chennaiObserved: () => request<ChennaiObserved>('/api/observed/chennai'),
   chennaiWards: () => request<ChennaiWards>('/api/observed/chennai/wards'),

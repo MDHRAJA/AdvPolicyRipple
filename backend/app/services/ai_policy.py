@@ -556,6 +556,82 @@ def policy_advice(prompt, objectives):
     return _enrich_policy_advice(_advice_template(prompt, objectives), prompt)
 
 
+SCENARIO_METRICS = (
+    'resource_access', 'inequality', 'stress', 'satisfaction', 'policy_support',
+    'compliance', 'trust', 'relocation', 'cooperation',
+)
+EXPLORATORY_SCENARIO_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'title': {'type': 'string'},
+        'summary': {'type': 'string'},
+        'assumptions': {'type': 'array', 'items': {'type': 'string'}},
+        'metric_changes': {
+            'type': 'object',
+            'properties': {metric: {'type': 'number', 'minimum': -0.15, 'maximum': 0.15} for metric in SCENARIO_METRICS},
+            'required': list(SCENARIO_METRICS),
+        },
+        'income_sensitivity': {
+            'type': 'object',
+            'properties': {
+                'low': {'type': 'number', 'minimum': 0.5, 'maximum': 1.5},
+                'middle': {'type': 'number', 'minimum': 0.5, 'maximum': 1.5},
+                'high': {'type': 'number', 'minimum': 0.5, 'maximum': 1.5},
+            },
+            'required': ['low', 'middle', 'high'],
+        },
+    },
+    'required': ['title', 'summary', 'assumptions', 'metric_changes', 'income_sensitivity'],
+}
+
+
+def exploratory_scenario(prompt, objectives):
+    """Create transparent, bounded AI assumptions for an out-of-catalog scenario.
+
+    This does not claim that Census data estimates the policy effect. The
+    resulting profile is applied only to a Census-anchored synthetic baseline
+    and is always labelled as an AI assumption-driven scenario.
+    """
+    if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() != 'gemini':
+        raise GeminiUnavailableError('Exploratory AI scenarios require Gemini to be enabled on the backend.')
+
+    system = (
+        "You are PolicyForge's exploratory-scenario designer for a Chennai policy outside the validated simulation catalog. "
+        'Produce transparent modelling assumptions, not evidence or a forecast. '
+        'Use small, bounded end-state changes (between -0.15 and 0.15) for each supplied synthetic metric. '
+        'Positive stress, inequality, and relocation changes are adverse; positive resource access, satisfaction, policy support, '
+        'compliance, trust, and cooperation changes are beneficial. '
+        'Set income_sensitivity above 1 when low-income households are more exposed, below 1 when they are protected. '
+        'Give 2–4 concise assumptions that make clear why the changes are hypothetical. '
+        'Never claim to have observed effects, consulted Census microdata, or established causality.'
+    )
+    profile = _gemini_json(
+        system,
+        f'Policy question: {prompt}\nObjectives: {objectives}\n'
+        'Return a presentation-ready exploratory scenario for a Chennai Census 2011 anchored synthetic population.',
+        EXPLORATORY_SCENARIO_SCHEMA,
+    )
+
+    changes = profile.get('metric_changes', {})
+    profile['metric_changes'] = {
+        metric: round(max(-0.15, min(0.15, float(changes.get(metric, 0)))), 4)
+        for metric in SCENARIO_METRICS
+    }
+    sensitivity = profile.get('income_sensitivity', {})
+    profile['income_sensitivity'] = {
+        group: round(max(0.5, min(1.5, float(sensitivity.get(group, 1)))), 3)
+        for group in ('low', 'middle', 'high')
+    }
+    profile['title'] = str(profile.get('title') or 'Exploratory Chennai policy scenario')[:160]
+    profile['summary'] = str(profile.get('summary') or 'AI-generated assumptions are applied to a Census-anchored synthetic Chennai baseline.')[:600]
+    profile['assumptions'] = [str(item)[:300] for item in profile.get('assumptions', []) if str(item).strip()][:4]
+    if not profile['assumptions']:
+        profile['assumptions'] = ['This is an AI assumption-driven scenario, not an observed-data estimate or forecast.']
+    profile['evidence_type'] = 'AI ASSUMPTION-DRIVEN SCENARIO'
+    profile['source'] = 'gemini'
+    return profile
+
+
 TRIAGE_SCHEMA = {
     'type': 'object',
     'properties': {
