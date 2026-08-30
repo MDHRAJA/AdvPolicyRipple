@@ -234,22 +234,72 @@ def compare(req: CompareRequest):
     return {"results": out}
 
 
+OBSERVED_CONTEXT_VARIABLES = [
+    'total_population', 'male_population', 'female_population',
+    'normal_households', 'population_density', 'sex_ratio',
+    'literacy_rate', 'work_participation_rate',
+]
+
+SYNTHETIC_ONLY_VARIABLES = [
+    'income_band', 'resource_access', 'trust', 'stress', 'risk',
+    'cooperation', 'support', 'satisfaction', 'compliance',
+    'policy_support', 'relocation',
+]
+
+ALLOWED_CALIBRATION_MAPPINGS = {}
+
+
 @app.post("/api/calibration/run")
 def calibration(req: CalibrationRequest):
-    keys = set(req.simulated) & set(req.observed)
-    errors = {key: abs(req.simulated[key] - req.observed[key]) for key in keys}
-    before = sum(errors.values()) / max(1, len(errors))
-    signed = sum(req.observed[key] - req.simulated[key] for key in keys) / max(1, len(keys))
-    updated = {key: round(max(-1, min(1, value + req.learning_rate * signed)), 6) for key, value in req.parameters.items()}
+    """Reject behavioral calibration unless a valid observed->simulated mapping is explicitly allowed.
+
+    The current Chennai dataset is contextual provenance only. There are no valid
+    behavioral calibration targets in the observed evidence, so this endpoint must
+    fail closed instead of inventing a model fit.
+    """
+    observed_keys = set(req.observed)
+    simulated_keys = set(req.simulated)
+
+    if not observed_keys or not simulated_keys:
+        return {
+            'calibration_available': False,
+            'reason': 'No valid behavioral calibration targets are currently available in the observed dataset.',
+            'observed_context_variables': OBSERVED_CONTEXT_VARIABLES,
+            'synthetic_only_variables': SYNTHETIC_ONLY_VARIABLES,
+        }
+
+    invalid_simulated = sorted(simulated_keys & set(SYNTHETIC_ONLY_VARIABLES))
+    if invalid_simulated:
+        return {
+            'calibration_available': False,
+            'reason': 'No valid behavioral calibration targets are currently available in the observed dataset.',
+            'observed_context_variables': OBSERVED_CONTEXT_VARIABLES,
+            'synthetic_only_variables': SYNTHETIC_ONLY_VARIABLES,
+            'rejected_simulated_metrics': invalid_simulated,
+        }
+
+    candidate_pairs = [
+        (observed_key, simulated_key)
+        for observed_key in observed_keys
+        for simulated_key in simulated_keys
+        if (observed_key, simulated_key) in ALLOWED_CALIBRATION_MAPPINGS
+    ]
+    if not candidate_pairs:
+        return {
+            'calibration_available': False,
+            'reason': 'No valid behavioral calibration targets are currently available in the observed dataset.',
+            'observed_context_variables': OBSERVED_CONTEXT_VARIABLES,
+            'synthetic_only_variables': SYNTHETIC_ONLY_VARIABLES,
+        }
+
     return {
-        "old_parameters": req.parameters,
-        "updated_parameters": updated,
-        "error_before": round(before, 6),
-        "error_after": round(before * .85, 6),
-        "errors": errors,
-        "method": "bounded weighted mean absolute error adjustment",
-        "scenarios_used": 1,
-        "data_boundary": "Only like-for-like observed targets may be calibrated. Synthetic behavioral variables are not observed evidence.",
+        'calibration_available': True,
+        'reason': 'Explicitly allowed calibration mapping is available.',
+        'observed_context_variables': OBSERVED_CONTEXT_VARIABLES,
+        'synthetic_only_variables': SYNTHETIC_ONLY_VARIABLES,
+        'allowed_mappings': candidate_pairs,
+        'parameters': req.parameters,
+        'method': 'no-op until an explicitly allowed mapping is added',
     }
 
 
