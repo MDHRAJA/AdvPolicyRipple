@@ -223,7 +223,7 @@ def _gemini_json(system, prompt, schema, timeout=20.0):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise GeminiUnavailableError("Gemini is enabled, but the backend Gemini API key is missing.")
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     try:
         response = httpx.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
@@ -234,16 +234,26 @@ def _gemini_json(system, prompt, schema, timeout=20.0):
                 "generationConfig": {
                     "responseMimeType": "application/json",
                     "responseSchema": schema,
-                    "temperature": 0.2,
                 },
             },
             timeout=timeout,
         )
         response.raise_for_status()
         payload = response.json()
+    except httpx.HTTPStatusError as error:
+        # The API error is useful for configuration diagnosis and contains no key.
+        status = error.response.status_code
+        try:
+            detail = error.response.json().get("error", {}).get("message", "")
+        except ValueError:
+            detail = ""
+        message = f"Gemini request failed with HTTP {status}."
+        if isinstance(detail, str) and detail.strip():
+            message += f" {detail.strip()[:300]}"
+        raise GeminiUnavailableError(message) from error
     except (httpx.HTTPError, ValueError) as error:
         raise GeminiUnavailableError(
-            "Gemini could not respond. Check the backend Gemini model, API key, and API access, then try again."
+            "Gemini could not respond due to a network or response-format error. Try again shortly."
         ) from error
 
     candidates = payload.get("candidates", [])
