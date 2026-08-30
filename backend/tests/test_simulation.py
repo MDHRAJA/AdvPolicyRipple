@@ -314,6 +314,7 @@ def test_policy_advice_includes_a_presentation_ready_implementation_report():
     for key in ('executive_recommendation', 'policy_design', 'targeting', 'budget_strategy', 'implementation_plan', 'success_measures', 'key_tradeoffs', 'decisions_required'):
         assert advice[key]
     assert len(advice['implementation_plan']) == 3
+    assert advice['follow_up_questions'] == []
 
 
 def test_gemini_policy_advice_does_not_silently_return_a_local_template(monkeypatch):
