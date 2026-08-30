@@ -104,6 +104,14 @@ export type PolicyAdvice = {
   title: string;
   catalog_fit: 'supported' | 'partially_supported' | 'outside_catalog';
   summary: string;
+  executive_recommendation: string;
+  policy_design: string;
+  targeting: string;
+  budget_strategy: string;
+  implementation_plan: Array<{ phase: string; timeframe: string; action: string; owner: string }>;
+  success_measures: string[];
+  key_tradeoffs: string[];
+  decisions_required: string[];
   recommendations: Array<{ action: string; detail: string; rationale: string; safeguard: string }>;
   source: 'gemini' | 'local_template';
   boundary: string;

@@ -359,6 +359,16 @@ ADVICE_SCHEMA = {
         'title': {'type': 'string'},
         'catalog_fit': {'type': 'string', 'enum': ['supported', 'partially_supported', 'outside_catalog']},
         'summary': {'type': 'string'},
+        'executive_recommendation': {'type': 'string'},
+        'policy_design': {'type': 'string'},
+        'targeting': {'type': 'string'},
+        'budget_strategy': {'type': 'string'},
+        'implementation_plan': {'type': 'array', 'items': {'type': 'object', 'properties': {
+            'phase': {'type': 'string'}, 'timeframe': {'type': 'string'}, 'action': {'type': 'string'}, 'owner': {'type': 'string'},
+        }, 'required': ['phase', 'timeframe', 'action', 'owner']}},
+        'success_measures': {'type': 'array', 'items': {'type': 'string'}},
+        'key_tradeoffs': {'type': 'array', 'items': {'type': 'string'}},
+        'decisions_required': {'type': 'array', 'items': {'type': 'string'}},
         'recommendations': {'type': 'array', 'items': {'type': 'object', 'properties': {
             'action': {'type': 'string'}, 'detail': {'type': 'string'}, 'rationale': {'type': 'string'}, 'safeguard': {'type': 'string'},
         }, 'required': ['action', 'detail', 'rationale', 'safeguard']}},
@@ -429,11 +439,11 @@ def _advice_template(prompt, objectives):
 def _gemini_advice(prompt, objectives):
     model = os.getenv('GEMINI_MODEL', 'gemini-3.7-flash')
     system = (
-        'You are a senior Chennai municipal-policy agent. Produce a decision-ready policy proposal for a request outside or only partly covered by the simulation catalog. '
-        'Do not give generic advice such as “assess the issue”, “consider vulnerable groups”, or “collect data” unless it is tied to a concrete policy decision. '
-        'Name the proposed policy in the title. Then recommend exactly three substantive actions. Each action must state the instrument to use, who or what it targets, an implementation choice, why it addresses the stated problem, and one realistic safeguard or trade-off. '
-        'When the request lacks a necessary number, location, legal authority, or budget, state a proposed design choice as conditional and ask for it in the interactive questions; never invent facts, sources, legal powers, budgets, outcomes, or approvals. '
-        'Keep the proposal separate from simulation outputs and do not relabel an outside policy as a catalog intervention. '
+        'You are a senior Chennai municipal-policy agent writing a presentation-grade policy recommendation for a request outside or only partly covered by the simulation catalog. '
+        'Be decisive: propose one named policy and explain exactly how it should work. Avoid generic advice such as “assess the issue”, “consider vulnerable groups”, or “collect data” unless it directly enables a named delivery decision. '
+        'Return an executive_recommendation of 2–3 sentences; a policy_design that describes the instrument, eligibility, operational mechanism and governance; targeting; a realistic budget_strategy; a three-phase implementation_plan; 3–5 success_measures; 2–4 key_tradeoffs; and 2–4 decisions_required from the sponsor. '
+        'Give exactly three substantive recommendations. Each must name the instrument, target, implementation choice, rationale, and safeguard. Where the prompt lacks a number, location, legal authority, or budget, write a clearly labelled proposed/conditional design choice instead of inventing facts. '
+        'Do not claim to have consulted data, laws, budgets, agencies, or communities that were not provided. Keep this as an AI proposal, distinct from simulation outputs, and never relabel an outside policy as a catalog intervention. '
         f'Simulation catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}.'
     )
     response = httpx.post(
@@ -462,16 +472,51 @@ def _gemini_advice(prompt, objectives):
     return advice
 
 
+def _enrich_policy_advice(advice, prompt):
+    """Ensure every adviser response has presentation-ready sections, including local fallback."""
+    text = prompt.lower()
+    title = advice.get('title', 'Chennai policy proposal')
+    boundary_topic = any(word in text for word in ('delimitation', 'boundary', 'electoral'))
+    default_design = (
+        'Create an independent, criteria-led administrative boundary review: publish the review criteria, prepare draft options, '
+        'and use a time-bound consultation and objection process before a legally authorised final decision.'
+        if boundary_topic else
+        'Implement the proposed intervention through a time-bound pilot, explicit eligibility and delivery rules, and a documented decision to expand, revise, or stop it.'
+    )
+    defaults = {
+        'executive_recommendation': f'Adopt the proposed {title} as a defined, time-bound policy programme rather than a broad statement of intent. Start with the specified pilot and only scale it after the delivery, equity, and fiscal conditions below are reviewed.',
+        'policy_design': default_design,
+        'targeting': 'Use the geography, groups, and service users stated in the request. Where they are not specified, obtain a sponsor decision before implementation rather than assuming citywide coverage.',
+        'budget_strategy': 'Set a capped pilot envelope and identify the approving budget line before launch. Treat future savings or revenue as provisional until they are evidenced after delivery.',
+        'implementation_plan': [
+            {'phase': '1 · Authorise and design', 'timeframe': 'Weeks 0–4', 'action': 'Approve scope, delivery rules, accountability, and the pilot budget cap.', 'owner': 'Policy sponsor and designated implementing authority'},
+            {'phase': '2 · Pilot delivery', 'timeframe': 'Months 2–4', 'action': 'Run the intervention in the approved scope, publish a service standard, and resolve implementation issues.', 'owner': 'Delivery unit with ward-level coordination'},
+            {'phase': '3 · Review and decide', 'timeframe': 'Month 5', 'action': 'Review outcomes, complaints, costs, and distributional effects; decide whether to scale, revise, or stop.', 'owner': 'Independent review group and policy sponsor'},
+        ],
+        'success_measures': ['Delivery reached the defined target group or area.', 'The stated service or administrative standard was met.', 'Cost remained within the approved pilot cap.', 'Complaints and exclusion risks were documented and resolved.'],
+        'key_tradeoffs': ['A faster rollout can reduce time for consultation and implementation testing.', 'Targeting can improve equity but creates eligibility and communication complexity.'],
+        'decisions_required': ['Confirm the accountable authority and legal route.', 'Confirm the target geography and beneficiary group.', 'Confirm the maximum pilot budget and the decision point for scale-up.'],
+    }
+    for key, value in defaults.items():
+        if not advice.get(key):
+            advice[key] = value
+    advice['implementation_plan'] = advice['implementation_plan'][:3]
+    advice['success_measures'] = advice['success_measures'][:5]
+    advice['key_tradeoffs'] = advice['key_tradeoffs'][:4]
+    advice['decisions_required'] = advice['decisions_required'][:4]
+    return advice
+
+
 def policy_advice(prompt, objectives):
-    """Return advisory content that is never passed to the simulation engine."""
+    """Return detailed advisory content that is never passed to the simulation engine."""
     if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini' and os.getenv('GEMINI_API_KEY'):
         try:
-            return _gemini_advice(prompt, objectives)
+            return _enrich_policy_advice(_gemini_advice(prompt, objectives), prompt)
         except Exception:
             advice = _advice_template(prompt, objectives)
-            advice['fallback_note'] = 'Gemini advice was unavailable, so a local policy-design template was used.'
-            return advice
-    return _advice_template(prompt, objectives)
+            advice['fallback_note'] = 'Gemini advice was unavailable, so a detailed local policy template was used.'
+            return _enrich_policy_advice(advice, prompt)
+    return _enrich_policy_advice(_advice_template(prompt, objectives), prompt)
 
 
 TRIAGE_SCHEMA = {

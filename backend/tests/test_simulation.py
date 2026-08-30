@@ -302,3 +302,10 @@ def test_policy_advice_gives_specific_boundary_policy_design():
     assert advice['source'] == 'local_template'
     assert advice['title'] == 'Administrative boundary review policy'
     assert all(item['detail'] and item['rationale'] and item['safeguard'] for item in advice['recommendations'])
+
+
+def test_policy_advice_includes_a_presentation_ready_implementation_report():
+    advice = policy_advice('Create an administrative delimitation policy for Chennai.', ['build_trust'])
+    for key in ('executive_recommendation', 'policy_design', 'targeting', 'budget_strategy', 'implementation_plan', 'success_measures', 'key_tradeoffs', 'decisions_required'):
+        assert advice[key]
+    assert len(advice['implementation_plan']) == 3
