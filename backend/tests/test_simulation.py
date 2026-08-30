@@ -309,3 +309,15 @@ def test_policy_advice_includes_a_presentation_ready_implementation_report():
     for key in ('executive_recommendation', 'policy_design', 'targeting', 'budget_strategy', 'implementation_plan', 'success_measures', 'key_tradeoffs', 'decisions_required'):
         assert advice[key]
     assert len(advice['implementation_plan']) == 3
+
+
+def test_gemini_policy_advice_does_not_silently_return_a_local_template(monkeypatch):
+    monkeypatch.setenv('POLICYFORGE_AI_MODE', 'gemini')
+    monkeypatch.delenv('GEMINI_API_KEY', raising=False)
+    client = TestClient(app)
+    response = client.post('/api/ai/policy-advice', json={
+        'prompt': 'Create an administrative delimitation policy for Chennai.',
+        'objectives': ['build_trust'],
+    })
+    assert response.status_code == 503
+    assert 'Gemini' in response.json()['detail']
