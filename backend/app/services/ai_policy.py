@@ -213,9 +213,52 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     return plan
 
 
+
+class GeminiUnavailableError(RuntimeError):
+    """A safe, user-facing Gemini configuration or response failure."""
+
+
+def _gemini_json(system, prompt, schema, timeout=20.0):
+    """Use the documented Gemini GenerateContent route and return structured JSON."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise GeminiUnavailableError("Gemini is enabled, but the backend Gemini API key is missing.")
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    try:
+        response = httpx.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            json={
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                    "responseSchema": schema,
+                    "temperature": 0.2,
+                },
+            },
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as error:
+        raise GeminiUnavailableError(
+            "Gemini could not respond. Check the backend Gemini model, API key, and API access, then try again."
+        ) from error
+
+    candidates = payload.get("candidates", [])
+    parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+    output = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
+    if not output.strip():
+        raise GeminiUnavailableError("Gemini returned an empty policy response. Please try again.")
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as error:
+        raise GeminiUnavailableError("Gemini returned an invalid policy response. Please try again.") from error
+
+
 def _interpret_gemini(prompt, objectives):
     """Interpret the request with Gemini, then validate every returned field locally."""
-    model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
     system = (
         "You are the PolicyForge policy-intake layer. Select exactly one supported policy and one percentage. "
         "Never invent policies, datasets, outcomes, or evidence. Interpret only the user text. "
@@ -225,35 +268,11 @@ def _interpret_gemini(prompt, objectives):
         "A stated increase in water availability is not a new water cut. If the request gives a current water cut and an availability restoration, return the remaining target cut after subtracting the restoration. "
         "The summary must state the interpretation, not a prediction or recommendation."
     )
-    response = httpx.post(
-        "https://generativelanguage.googleapis.com/v1beta/interactions",
-        headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"], "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "input": f"{system}\n\nPolicy request: {prompt}\nSelected objectives: {objectives}",
-            "store": False,
-            "response_format": {
-                "type": "text",
-                "mime_type": "application/json",
-                "schema": GEMINI_SCHEMA,
-            },
-        },
-        timeout=12.0,
+    proposal = _gemini_json(
+        system,
+        f"Policy request: {prompt}\nSelected objectives: {objectives}",
+        GEMINI_SCHEMA,
     )
-    response.raise_for_status()
-    payload = response.json()
-    output = payload.get("output_text")
-    if not output:
-        for step in reversed(payload.get("steps", [])):
-            for content in step.get("content", []):
-                if content.get("type") == "text" and content.get("text"):
-                    output = content["text"]
-                    break
-            if output:
-                break
-    if not output:
-        raise ValueError("Gemini returned no structured policy interpretation.")
-    proposal = json.loads(output)
     water_context = _water_restoration_context(prompt)
     energy_context = _service_restoration_context(prompt, 'energy')
     percentage = proposal["percentage"]
@@ -279,13 +298,12 @@ def _interpret_gemini(prompt, objectives):
         _fiscal_consideration(prompt),
     )
 
-
 def interpreter_status():
     """Expose the active interpreter without exposing credentials."""
     gemini_enabled = os.getenv("POLICYFORGE_AI_MODE", "rule_based").lower() == "gemini"
     has_key = bool(os.getenv("GEMINI_API_KEY"))
     if gemini_enabled and has_key:
-        return {"configured": "gemini", "display": "Gemini-assisted", "fallback": "Local rule-based fallback is used if Gemini is unavailable."}
+        return {"configured": "gemini", "display": "Gemini-assisted", "fallback": "Gemini policy advice is shown only when Gemini responds; unavailable advice is reported clearly."}
     if gemini_enabled:
         return {"configured": "rule_based", "display": "Local rule-based", "fallback": "Gemini mode was requested but no backend API key is configured."}
     return {"configured": "rule_based", "display": "Local rule-based", "fallback": "Gemini interpretation is currently disabled."}
@@ -437,7 +455,6 @@ def _advice_template(prompt, objectives):
 
 
 def _gemini_advice(prompt, objectives):
-    model = os.getenv('GEMINI_MODEL', 'gemini-3.7-flash')
     system = (
         'You are a senior Chennai municipal-policy agent writing a presentation-grade policy recommendation for a request outside or only partly covered by the simulation catalog. '
         'Be decisive: propose one named policy and explain exactly how it should work. Avoid generic advice such as “assess the issue”, “consider vulnerable groups”, or “collect data” unless it directly enables a named delivery decision. '
@@ -446,31 +463,15 @@ def _gemini_advice(prompt, objectives):
         'Do not claim to have consulted data, laws, budgets, agencies, or communities that were not provided. Keep this as an AI proposal, distinct from simulation outputs, and never relabel an outside policy as a catalog intervention. '
         f'Simulation catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}.'
     )
-    response = httpx.post(
-        'https://generativelanguage.googleapis.com/v1beta/interactions',
-        headers={'x-goog-api-key': os.environ['GEMINI_API_KEY'], 'Content-Type': 'application/json'},
-        json={'model': model, 'input': f'{system}\n\nPolicy question: {prompt}\nObjectives: {objectives}', 'store': False, 'response_format': {'type': 'text', 'mime_type': 'application/json', 'schema': ADVICE_SCHEMA}},
-        timeout=12.0,
+    advice = _gemini_json(
+        system,
+        f"Policy question: {prompt}\nObjectives: {objectives}",
+        ADVICE_SCHEMA,
     )
-    response.raise_for_status()
-    payload = response.json()
-    output = payload.get('output_text')
-    if not output:
-        for step in reversed(payload.get('steps', [])):
-            for content in step.get('content', []):
-                if content.get('type') == 'text' and content.get('text'):
-                    output = content['text']
-                    break
-            if output:
-                break
-    if not output:
-        raise ValueError('Gemini returned no policy advice.')
-    advice = json.loads(output)
     advice['recommendations'] = advice['recommendations'][:3]
     advice['source'] = 'gemini'
     advice['boundary'] = 'AI policy advice is not a simulation result, legal advice, engineering design, budget approval, or empirical prediction.'
     return advice
-
 
 def _enrich_policy_advice(advice, prompt):
     """Ensure every adviser response has presentation-ready sections, including local fallback."""
@@ -508,14 +509,13 @@ def _enrich_policy_advice(advice, prompt):
 
 
 def policy_advice(prompt, objectives):
-    """Return detailed advisory content that is never passed to the simulation engine."""
-    if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini' and os.getenv('GEMINI_API_KEY'):
-        try:
-            return _enrich_policy_advice(_gemini_advice(prompt, objectives), prompt)
-        except Exception:
-            advice = _advice_template(prompt, objectives)
-            advice['fallback_note'] = 'Gemini advice was unavailable, so a detailed local policy template was used.'
-            return _enrich_policy_advice(advice, prompt)
+    """Return advisory content that is never passed to the simulation engine.
+
+    Gemini mode is deliberately fail-visible: generic local text must never be
+    presented as an AI-generated recommendation when Gemini is unavailable.
+    """
+    if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini':
+        return _enrich_policy_advice(_gemini_advice(prompt, objectives), prompt)
     return _enrich_policy_advice(_advice_template(prompt, objectives), prompt)
 
 
@@ -574,7 +574,6 @@ def _triage_rules(prompt):
 
 
 def _triage_with_gemini(prompt):
-    model = os.getenv('GEMINI_MODEL', 'gemini-3.7-flash')
     system = (
         'You are the PolicyForge triage layer. Decide whether a Chennai policy request can be honestly simulated using the existing catalog. '
         'Do not force an unrelated request into a catalog policy. Use simulation_ready only if the user clearly requests a supported mechanism and amount/direction. '
@@ -582,26 +581,7 @@ def _triage_with_gemini(prompt):
         f'Catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}. '
         'Return up to three short questions only when clarification is needed. Do not make empirical claims.'
     )
-    response = httpx.post(
-        'https://generativelanguage.googleapis.com/v1beta/interactions',
-        headers={'x-goog-api-key': os.environ['GEMINI_API_KEY'], 'Content-Type': 'application/json'},
-        json={'model': model, 'input': f'{system}\n\nPolicy request: {prompt}', 'store': False, 'response_format': {'type': 'text', 'mime_type': 'application/json', 'schema': TRIAGE_SCHEMA}},
-        timeout=10.0,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    output = payload.get('output_text')
-    if not output:
-        for step in reversed(payload.get('steps', [])):
-            for content in step.get('content', []):
-                if content.get('type') == 'text' and content.get('text'):
-                    output = content['text']
-                    break
-            if output:
-                break
-    if not output:
-        raise ValueError('Gemini returned no planner triage.')
-    result = json.loads(output)
+    result = _gemini_json(system, f"Policy request: {prompt}", TRIAGE_SCHEMA, timeout=15.0)
     policy_id = result.get('matched_policy_id')
     if policy_id not in POLICIES:
         policy_id = None
@@ -611,7 +591,6 @@ def _triage_with_gemini(prompt):
     result['matched_policy_id'] = policy_id
     result['questions'] = result.get('questions', [])[:3]
     return result
-
 
 def triage_policy(prompt):
     """Classify before planning so outside requests are never silently mislabelled."""
