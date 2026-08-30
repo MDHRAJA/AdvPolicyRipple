@@ -39,13 +39,17 @@ def population(config, seed):
 
 def metrics(agents):
     count = max(1, len(agents))
+    compliance_values = [
+        clip(0.45 * agent['support'] + 0.35 * agent['trust'] + 0.20 * (1 - agent['stress']) - 0.10 * agent['risk'])
+        for agent in agents
+    ]
     return {
         'resource_access': statistics.fmean(agent['resource_access'] for agent in agents),
         'inequality': gini([agent['resource_access'] for agent in agents]),
         'stress': statistics.fmean(agent['stress'] for agent in agents),
         'satisfaction': statistics.fmean(agent['satisfaction'] for agent in agents),
         'policy_support': statistics.fmean(agent['support'] for agent in agents),
-        'compliance': statistics.fmean((1 - agent['risk'] * .35) if agent['support'] >= .35 else .35 for agent in agents),
+        'compliance': statistics.fmean(compliance_values),
         'trust': statistics.fmean(agent['trust'] for agent in agents),
         'relocation': sum(agent['relocated'] for agent in agents) / count,
         'cooperation': statistics.fmean(agent['cooperation'] for agent in agents),
@@ -57,11 +61,15 @@ def income_group_metrics(agents):
     groups = {}
     for income_band in ('low', 'middle', 'high'):
         members = [agent for agent in agents if agent['income_band'] == income_band]
+        compliance_values = [
+            clip(0.45 * agent['support'] + 0.35 * agent['trust'] + 0.20 * (1 - agent['stress']) - 0.10 * agent['risk'])
+            for agent in members
+        ]
         groups[income_band] = {
             'resource_access': statistics.fmean(agent['resource_access'] for agent in members),
             'stress': statistics.fmean(agent['stress'] for agent in members),
             'trust': statistics.fmean(agent['trust'] for agent in members),
-            'compliance': statistics.fmean((1 - agent['risk'] * .35) if agent['support'] >= .35 else .35 for agent in members),
+            'compliance': statistics.fmean(compliance_values),
         }
     return groups
 
@@ -87,7 +95,10 @@ def ward_metrics(agents):
             'resource_access': statistics.fmean(agent['resource_access'] for agent in members),
             'stress': statistics.fmean(agent['stress'] for agent in members),
             'trust': statistics.fmean(agent['trust'] for agent in members),
-            'compliance': statistics.fmean((1 - agent['risk'] * .35) if agent['support'] >= .35 else .35 for agent in members),
+            'compliance': statistics.fmean([
+                clip(0.45 * agent['support'] + 0.35 * agent['trust'] + 0.20 * (1 - agent['stress']) - 0.10 * agent['risk'])
+                for agent in members
+            ]),
             'synthetic_agents': len(members),
         }
         for ward, members in groups.items()
@@ -106,7 +117,12 @@ def ward_impacts(baseline, final):
 
 
 def active_policies(config):
-    selections = config.policy_bundle or [{'policy_id': config.policy_id, 'policy_parameters': config.policy_parameters}]
+    if config.policy_bundle:
+        selections = config.policy_bundle
+    elif not config.policy_id:
+        return []
+    else:
+        selections = [{'policy_id': config.policy_id, 'policy_parameters': config.policy_parameters}]
     return [get_policy(selection['policy_id'] if isinstance(selection, dict) else selection.policy_id, selection['policy_parameters'] if isinstance(selection, dict) else selection.policy_parameters) for selection in selections]
 
 def apply_policy(agent, policy):
@@ -164,12 +180,16 @@ def run(config):
     baseline_wards = ward_metrics(agents) if config.population.preset == 'chennai_census_2011' else None
     policies = active_policies(config)
     target_wards = set(config.target_wards) if config.population.preset == 'chennai_census_2011' else set()
+    for agent in agents:
+        agent['policy_fairness'] = 0
+        if not target_wards or agent['ward'] in target_wards:
+            agent['policy_fairness'] = sum(apply_policy(agent, policy) for policy in policies)
     timeline = []
 
     for round_number in range(1, config.rounds + 1):
         for agent in agents:
             agent['social_signal'] = 0
-            fairness = sum(apply_policy(agent, policy) for policy in policies) if not target_wards or agent['ward'] in target_wards else 0
+            fairness = agent['policy_fairness']
             agent['support'] = clip(agent['support'] + (agent['satisfaction'] - .5) * .05 + fairness * .045)
             agent['trust'] = clip(agent['trust'] + fairness * .035 + (agent['satisfaction'] - .5) * .012 - (agent['stress'] - .5) * .010)
 
