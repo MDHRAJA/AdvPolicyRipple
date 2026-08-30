@@ -218,7 +218,7 @@ class GeminiUnavailableError(RuntimeError):
     """A safe, user-facing Gemini configuration or response failure."""
 
 
-def _gemini_json(system, prompt, schema, timeout=20.0):
+def _gemini_json(system, prompt, schema, timeout=60.0):
     """Use the documented Gemini GenerateContent route and return structured JSON."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -240,6 +240,10 @@ def _gemini_json(system, prompt, schema, timeout=20.0):
         )
         response.raise_for_status()
         payload = response.json()
+    except httpx.TimeoutException as error:
+        raise GeminiUnavailableError(
+            "Gemini took longer than expected to prepare the structured policy response. Please try again."
+        ) from error
     except httpx.HTTPStatusError as error:
         # The API error is useful for configuration diagnosis and contains no key.
         status = error.response.status_code
@@ -596,7 +600,7 @@ def _triage_with_gemini(prompt):
         f'Catalog: {json.dumps({key: value["name"] for key, value in POLICIES.items()})}. '
         'Return up to three short questions only when clarification is needed. Do not make empirical claims.'
     )
-    result = _gemini_json(system, f"Policy request: {prompt}", TRIAGE_SCHEMA, timeout=15.0)
+    result = _gemini_json(system, f"Policy request: {prompt}", TRIAGE_SCHEMA, timeout=45.0)
     policy_id = result.get('matched_policy_id')
     if policy_id not in POLICIES:
         policy_id = None
