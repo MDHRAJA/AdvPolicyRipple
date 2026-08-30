@@ -389,6 +389,13 @@ def _advice_template(prompt, objectives):
             ('Use phased, targeted relief', 'Start with time-limited support or protections for defined high-risk groups, then review before widening.', 'Phasing limits fiscal exposure and permits correction.', 'Specify an end date, appeal process, and funding source.'),
             ('Pair affordability with supply delivery', 'Coordinate rental supply, serviced land, permitting, and transport access.', 'Price action alone can shift pressure elsewhere.', 'Track displacement and availability alongside rents.'),
         ]
+    elif any(word in text for word in ('solid waste', 'garbage', 'segregation', 'waste collection', 'dumping')):
+        title = 'Solid-waste service design advice'
+        rows = [
+            ('Define the service standard', 'Set collection frequency, segregation expectations, missed-pickup handling, and accountable service areas before changing operations.', 'A clear standard makes performance measurable.', 'Avoid punitive enforcement until access to bins, collection, and information is reliable.'),
+            ('Pilot ward-level operational changes', 'Test route design, collection timing, material handling, and resident communication in a small set of wards.', 'Pilots identify delivery constraints before citywide rollout.', 'Track worker safety, inclusion of informal workers, and missed-service complaints.'),
+            ('Create feedback and verification loops', 'Provide an accessible complaint route and independently review service completion and disposal practices.', 'Visible feedback improves correction and trust.', 'Do not treat app reports alone as representative of households without smartphones.'),
+        ]
     elif any(word in text for word in ('traffic', 'transport', 'bus', 'metro', 'mobility')):
         title = 'Accessible mobility advice'
         rows = [
