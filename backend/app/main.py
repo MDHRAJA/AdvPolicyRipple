@@ -14,7 +14,7 @@ from app.db.store import init_db, create, get, save
 from app.services.observed_data import chennai_calibration_anchor, chennai_metrics, chennai_sources, chennai_summary
 from app.services.wards import chennai_ward_boundaries, ward_profile
 from app.services.policies import list_policies
-from app.services.ai_policy import interpret, recommend, interpreter_status
+from app.services.ai_policy import interpret, recommend, interpreter_status, policy_advice
 from app.services.simulation import PRESETS, run
 
 app = FastAPI(
@@ -353,6 +353,16 @@ def ai_policy_plan(req: PolicyPlanRequest):
     by the browser so the user can review the proposed policy without waiting.
     """
     return interpret(req.prompt, req.objectives, req.size, req.rounds, req.seed)
+
+
+@app.post("/api/ai/policy-advice")
+def ai_policy_advice(payload: dict):
+    """Return AI-written policy-design advice that is explicitly not simulated."""
+    prompt = str(payload.get("prompt", "")).strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="A policy question is required.")
+    objectives = payload.get("objectives", [])
+    return policy_advice(prompt, objectives if isinstance(objectives, list) else [])
 
 
 @app.post("/api/ai/recommendation")
