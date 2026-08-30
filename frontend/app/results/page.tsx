@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, Metrics, SimulationConfig, SimulationResult } from '@/lib/api';
+import { AIPlannerSession, api, Metrics, PolicyAdvice, SimulationConfig, SimulationResult } from '@/lib/api';
 
 const labels: Record<keyof Metrics, string> = { resource_access: 'Resource access', inequality: 'Inequality', stress: 'Stress', satisfaction: 'Satisfaction', policy_support: 'Policy support', compliance: 'Compliance', trust: 'Trust', relocation: 'Relocation', cooperation: 'Cooperation' };
 
@@ -14,6 +14,7 @@ export default function ResultsPage() {
   const [config, setConfig] = useState<SimulationConfig | null>(null);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [aiPlanner, setAiPlanner] = useState<AIPlannerSession | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
 
@@ -22,8 +23,8 @@ export default function ResultsPage() {
     try {
       const raw = window.sessionStorage.getItem('policyforge:lastSimulation');
       if (!raw) throw new Error('This session has no simulation result yet.');
-      const saved = JSON.parse(raw) as { config: SimulationConfig; result: SimulationResult };
-      setConfig(saved.config); setResult(saved.result);
+      const saved = JSON.parse(raw) as { config: SimulationConfig; result: SimulationResult; aiPlanner?: AIPlannerSession };
+      setConfig(saved.config); setResult(saved.result); setAiPlanner(saved.aiPlanner || null);
       if (saved.result.exploratory_assessment) {
         setAssessment(saved.result.exploratory_assessment);
         setBusy(false);
@@ -45,7 +46,8 @@ export default function ResultsPage() {
 
   return <main className="page-shell">
     <div className="page-heading"><div><div className="label">{isExploratory ? 'AI assumption-driven scenario' : 'Results & assessment'}</div><h1>Understand the policy effects.</h1><p>{isExploratory ? 'This graph applies transparent Gemini assumptions to a Chennai Census 2011 anchored synthetic baseline. It is not an observed-data prediction or forecast.' : 'Five paired seeded runs compare this policy with an equivalent no-policy baseline in the synthetic model.'}</p></div><div className="result-actions">{result.ward_impacts && <button className="btn" onClick={() => router.push('/map')}>View ward impacts →</button>}<button className="btn" onClick={() => router.push('/simulate')}>← New experiment</button></div></div>
-    <section className="assessment-hero card"><div><div className="label">Policy assessment</div><h2>{result.unintended_consequence_score >= 65 ? 'High impact' : result.unintended_consequence_score >= 50 ? 'Moderate impact' : 'Lower impact'}</h2><p>{isExploratory ? 'This exploratory view shows the consequences of the AI assumptions listed below. Change the policy question or assumptions and the scenario can change.' : 'This synthetic assessment summarizes likely trade-offs under the selected assumptions. Review the trajectory graph and uncertainty range below.'}</p></div><div className="assessment-score"><span>Unintended consequence</span><b>{Number(result.unintended_consequence_score).toFixed(2)}</b></div></section><div className="assessment-grid"><section className="card p-6"><div className="label">Who is affected?</div><h2 className="section-title">Income-group effects</h2>{result.income_group_impacts ? <div className="income-results">{(['low', 'middle', 'high'] as const).map((group) => <IncomeImpactRow key={group} group={group} impact={result.income_group_impacts![group]} />)}</div> : <p className="helper">Income-group effects are available for new simulation runs.</p>}<p className="helper">Changes are measured from each synthetic group’s starting point. A negative stress change is favourable; these are not observed predictions about real people.</p></section><section className="card p-6"><div className="label">Key outcomes</div><h2 className="section-title">Policy signal</h2><div className="outcome-row"><span>Stress</span><b>{((result.final.stress - result.baseline.stress) * 100).toFixed(1)}%</b></div><div className="outcome-row"><span>Trust</span><b>{((result.final.trust - result.baseline.trust) * 100).toFixed(1)}%</b></div><div className="outcome-row"><span>Compliance</span><b>{(result.final.compliance * 100).toFixed(0)}%</b></div><div className="policy-note"><b>⚠ Unintended consequences</b><span>Score is a synthetic-model summary, not a policy implementation verdict.</span></div></section></div><section className="card p-6 mb-6"><div className="result-hero"><div><div className="label">Experiment</div><h2 className="section-title">{isExploratory ? result.exploratory_scenario?.title || 'Exploratory Chennai scenario' : (config.policy_bundle?.length ? config.policy_bundle : [{ policy_id: config.policy_id }]).map((item) => (item.policy_id || 'no policy').replaceAll('_', ' ')).join(' + ')}</h2><p className="helper">{isExploratory ? 'Chennai Census 2011 anchored synthetic population · AI assumptions visible below' : `${config.population.preset} · ${config.population.size.toLocaleString()} agents · ${config.rounds} rounds · seed ${config.seed}`}</p></div><div className="score"><span>Unintended consequence</span><b>{Number(result.unintended_consequence_score).toFixed(2)}</b></div></div>{result.observed_data_anchor && <div className="policy-note result-anchor"><b>OBSERVED DATA ANCHOR · Chennai Census 2011</b><span>{result.observed_data_anchor.observed_population.toLocaleString()} observed people; individual agent behaviour remains synthetic.</span></div>}{isExploratory && result.exploratory_scenario ? <div className="policy-note"><b>AI ASSUMPTIONS · NOT OBSERVED EFFECTS</b><span>{result.exploratory_scenario.summary}</span><span>{result.exploratory_scenario.assumptions.map((assumption) => <span className="income-impact" key={assumption}>{assumption}</span>)}</span></div> : null}<div className="metric-grid">{(Object.keys(labels) as Array<keyof Metrics>).map((key) => <Metric key={key} label={labels[key]} value={result.final[key]} />)}</div></section>
+    {aiPlanner ? <AIPlannerProposal session={aiPlanner} /> : null}
+        <section className="assessment-hero card"><div><div className="label">Policy assessment</div><h2>{result.unintended_consequence_score >= 65 ? 'High impact' : result.unintended_consequence_score >= 50 ? 'Moderate impact' : 'Lower impact'}</h2><p>{isExploratory ? 'This exploratory view shows the consequences of the AI assumptions listed below. Change the policy question or assumptions and the scenario can change.' : 'This synthetic assessment summarizes likely trade-offs under the selected assumptions. Review the trajectory graph and uncertainty range below.'}</p></div><div className="assessment-score"><span>Unintended consequence</span><b>{Number(result.unintended_consequence_score).toFixed(2)}</b></div></section><div className="assessment-grid"><section className="card p-6"><div className="label">Who is affected?</div><h2 className="section-title">Income-group effects</h2>{result.income_group_impacts ? <div className="income-results">{(['low', 'middle', 'high'] as const).map((group) => <IncomeImpactRow key={group} group={group} impact={result.income_group_impacts![group]} />)}</div> : <p className="helper">Income-group effects are available for new simulation runs.</p>}<p className="helper">Changes are measured from each synthetic group’s starting point. A negative stress change is favourable; these are not observed predictions about real people.</p></section><section className="card p-6"><div className="label">Key outcomes</div><h2 className="section-title">Policy signal</h2><div className="outcome-row"><span>Stress</span><b>{((result.final.stress - result.baseline.stress) * 100).toFixed(1)}%</b></div><div className="outcome-row"><span>Trust</span><b>{((result.final.trust - result.baseline.trust) * 100).toFixed(1)}%</b></div><div className="outcome-row"><span>Compliance</span><b>{(result.final.compliance * 100).toFixed(0)}%</b></div><div className="policy-note"><b>⚠ Unintended consequences</b><span>Score is a synthetic-model summary, not a policy implementation verdict.</span></div></section></div><section className="card p-6 mb-6"><div className="result-hero"><div><div className="label">Experiment</div><h2 className="section-title">{isExploratory ? result.exploratory_scenario?.title || 'Exploratory Chennai scenario' : (config.policy_bundle?.length ? config.policy_bundle : [{ policy_id: config.policy_id }]).map((item) => (item.policy_id || 'no policy').replaceAll('_', ' ')).join(' + ')}</h2><p className="helper">{isExploratory ? 'Chennai Census 2011 anchored synthetic population · AI assumptions visible below' : `${config.population.preset} · ${config.population.size.toLocaleString()} agents · ${config.rounds} rounds · seed ${config.seed}`}</p></div><div className="score"><span>Unintended consequence</span><b>{Number(result.unintended_consequence_score).toFixed(2)}</b></div></div>{result.observed_data_anchor && <div className="policy-note result-anchor"><b>OBSERVED DATA ANCHOR · Chennai Census 2011</b><span>{result.observed_data_anchor.observed_population.toLocaleString()} observed people; individual agent behaviour remains synthetic.</span></div>}{isExploratory && result.exploratory_scenario ? <div className="policy-note"><b>AI ASSUMPTIONS · NOT OBSERVED EFFECTS</b><span>{result.exploratory_scenario.summary}</span><span>{result.exploratory_scenario.assumptions.map((assumption) => <span className="income-impact" key={assumption}>{assumption}</span>)}</span></div> : null}<div className="metric-grid">{(Object.keys(labels) as Array<keyof Metrics>).map((key) => <Metric key={key} label={labels[key]} value={result.final[key]} />)}</div></section>
     <section className="card p-6 mb-6">
       <div className="label">Baseline versus policy</div>
       <h2 className="section-title">What changed relative to no policy?</h2>
@@ -58,6 +60,35 @@ export default function ResultsPage() {
     </div>
     <section className="card p-6 mt-6"><div className="label">Interpretation</div><h2 className="section-title">Decision-support notes</h2><div className="notes-grid"><div><h3>What this says</h3><p>The simulation shows how the selected policy interacts with a synthetic population over time. Higher inequality and stress are treated as adverse outcomes; resource access, trust and compliance are treated as beneficial outcomes.</p></div><div><h3>What this does not say</h3><p>This is not an empirical prediction of real people. The assessment is generated from five seeded simulation runs and inherits every assumption in the synthetic model.</p></div><div><h3>Evidence</h3><p>{assessment?.evidence_used || 'Synthetic simulation evidence.'}</p></div></div>{assessment && <ul className="limitations">{assessment.limitations.map((item) => <li key={item}>{item}</li>)}</ul>}</section>
   </main>;
+}
+
+
+function AIPlannerProposal({ session }: { session: AIPlannerSession }) {
+  const advice = session.advice;
+  const plan = session.plan;
+  return <section className="card p-6 mb-6 ai-planner-proposal">
+    <div className="label">AI Planner proposal</div>
+    <h2 className="section-title">{plan?.recommendation?.recommended.name || advice?.title || session.triage.title}</h2>
+    <p className="helper"><b>Your policy question:</b> {session.prompt}</p>
+    {plan ? <div className="policy-note"><b>Interpreted policy · {plan.matched_policy.name}</b><span>{plan.interpretation}</span>{plan.recommendation ? <span className="income-impact"><strong>Selected after comparison:</strong> {plan.recommendation.explanation}</span> : null}</div> : <div className="policy-note"><b>Simulation route</b><span>{session.triage.explanation} This results page therefore uses transparent Gemini assumptions rather than relabelling the request as a preset policy.</span></div>}
+    {advice ? <AIAdviceSummary advice={advice} /> : session.adviceError ? <p className="helper">The separate AI narrative could not be loaded: {session.adviceError}</p> : null}
+  </section>;
+}
+
+function AIAdviceSummary({ advice }: { advice: PolicyAdvice }) {
+  return <>
+    <div className="policy-note"><b>AI recommendation</b><span>{advice.executive_recommendation}</span></div>
+    <div className="advice-two-col">
+      <div className="advice-section"><b>Policy design</b><p>{advice.policy_design}</p></div>
+      <div className="advice-section"><b>Targeting and funding</b><p>{advice.targeting}</p><p>{advice.budget_strategy}</p></div>
+    </div>
+    <div className="advice-section"><b>Recommended actions</b>{advice.recommendations.map((item) => <div key={item.action} className="income-impact"><strong>{item.action}</strong> — {item.detail}<em>Why: {item.rationale} Safeguard: {item.safeguard}</em></div>)}</div>
+    <div className="advice-two-col">
+      <div className="advice-section"><b>Implementation sequence</b>{advice.implementation_plan.map((item) => <div key={item.phase} className="advice-phase"><strong>{item.phase}</strong><span>{item.timeframe} · {item.owner}</span><p>{item.action}</p></div>)}</div>
+      <div className="advice-section"><b>Success measures</b><ul>{advice.success_measures.map((item) => <li key={item}>{item}</li>)}</ul><b>Trade-offs to manage</b><ul>{advice.key_tradeoffs.map((item) => <li key={item}>{item}</li>)}</ul></div>
+    </div>
+    <p className="helper">{advice.boundary}</p>
+  </>;
 }
 
 function baselinePolicyRows(effect: Assessment['policy_effect']) {

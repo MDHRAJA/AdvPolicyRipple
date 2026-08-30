@@ -123,6 +123,15 @@ export type PolicyRecommendation = { recommended: { policy_id: string; name: str
 
 export type PolicyPlan = { interpretation: string; interpretation_source: 'gemini' | 'rule_based'; assumptions: string[]; objectives: string[]; proposed_config: SimulationConfig; matched_policy: Policy; fiscal_consideration?: string | null; policy_detail: { parameter: string; value_percent: number; population_basis: string }; recommendation?: PolicyRecommendation };
 
+export type AIPlannerSession = {
+  prompt: string;
+  objectives: string[];
+  triage: PolicyTriage;
+  plan?: PolicyPlan;
+  advice?: PolicyAdvice;
+  adviceError?: string;
+};
+
 export type WardImpact = { baseline: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> & { synthetic_agents: number }; final: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> & { synthetic_agents: number }; change: Pick<Metrics, 'resource_access' | 'stress' | 'trust' | 'compliance'> };
 
 export type SimulationResult = {
