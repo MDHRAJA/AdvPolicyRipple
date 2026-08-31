@@ -82,8 +82,15 @@ function AIPlannerProposal({ session }: { session: AIPlannerSession }) {
   </section>;
 }
 
+function promptBudgetConstraint(prompt: string) {
+  const terms = /\b(budget|fund(?:s|ing)?|money|cost|afford(?:able)?|fiscal|spend(?:ing)?|revenue|allocation|cap)\b/i;
+  const amount = /(?:₹|rs\.?\s*)\s*\d[\d,]*(?:\.\d+)?|\b\d[\d,]*(?:\.\d+)?\s*(?:inr|rupees?|lakh(?:s)?|lac(?:s)?|crore(?:s)?|million|thousand)\b/i;
+  const sentence = prompt.split(/(?<=[.!?])\s+/).find((item) => terms.test(item) || amount.test(item));
+  return sentence ? `Stated budget constraint: ${sentence.trim().slice(0, 360)} PolicyForge will use this as a policy-design constraint; it is not automatically a numerical simulation parameter.` : null;
+}
+
 function BudgetConstraint({ session, advice }: { session: AIPlannerSession; advice?: PolicyAdvice }) {
-  const statedConstraint = session.plan?.fiscal_consideration;
+  const statedConstraint = session.plan?.fiscal_consideration || session.triage.fiscal_consideration || promptBudgetConstraint(session.prompt);
   return <section className="budget-constraint">
     <div className="label">Budget & delivery constraint</div>
     <h3>{statedConstraint ? 'Funding requirement recognised' : 'Funding position to confirm'}</h3>

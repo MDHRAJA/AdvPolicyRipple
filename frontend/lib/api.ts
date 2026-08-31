@@ -98,6 +98,7 @@ export type PolicyTriage = {
   explanation: string;
   questions: string[];
   fallback_note?: string;
+  fiscal_consideration?: string | null;
 };
 
 export type PolicyAdvice = {

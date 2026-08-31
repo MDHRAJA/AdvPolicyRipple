@@ -648,7 +648,7 @@ def exploratory_scenario(prompt, objectives):
 
     This does not claim that Census data estimates the policy effect. The
     resulting profile is applied only to a Census-anchored synthetic baseline
-    and is always labelled as an Census-informed synthetic scenario.
+    and is always labelled as a Census-informed synthetic scenario.
     """
     if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() != 'gemini':
         raise GeminiUnavailableError('Exploratory AI scenarios require Gemini to be enabled on the backend.')
@@ -767,9 +767,13 @@ def triage_policy(prompt):
     """Classify before planning so outside requests are never silently mislabelled."""
     if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() == 'gemini' and os.getenv('GEMINI_API_KEY'):
         try:
-            return _triage_with_gemini(prompt)
+            result = _triage_with_gemini(prompt)
         except Exception:
             result = _triage_rules(prompt)
             result['fallback_note'] = 'Gemini triage was unavailable, so PolicyForge used local catalog matching.'
-            return result
-    return _triage_rules(prompt)
+    else:
+        result = _triage_rules(prompt)
+    # Preserve funding constraints for every route, including outside-catalog
+    # scenarios that intentionally do not create a preset simulation plan.
+    result['fiscal_consideration'] = _fiscal_consideration(prompt)
+    return result
