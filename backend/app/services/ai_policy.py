@@ -105,9 +105,17 @@ def _support_direction(text):
 
 
 def _fiscal_consideration(text):
-    terms = ('budget', 'fund', 'funds', 'money', 'cost', 'afford', 'fiscal', 'spend', 'spending', 'revenue')
+    terms = ('budget', 'fund', 'funds', 'money', 'cost', 'afford', 'fiscal', 'spend', 'spending', 'revenue', 'allocation', 'cap')
+    currency_amount = re.compile(
+        r'(?:₹|rs\.?\s*)\s*\d[\d,]*(?:\.\d+)?|'
+        r'\b\d[\d,]*(?:\.\d+)?\s*(?:inr|rupees?|lakh(?:s)?|lac(?:s)?|crore(?:s)?|million|thousand)\b',
+        re.IGNORECASE,
+    )
     sentences = [sentence.strip() for sentence in re.split(r'(?<=[.!?])\s+', text.strip()) if sentence.strip()]
-    relevant = [sentence for sentence in sentences if any(term in sentence.lower() for term in terms)]
+    relevant = [
+        sentence for sentence in sentences
+        if any(term in sentence.lower() for term in terms) or currency_amount.search(sentence)
+    ]
     if not relevant:
         return None
     stated_constraint = relevant[0][:360]
