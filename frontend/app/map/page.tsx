@@ -33,12 +33,33 @@ function WardMapPageContent() {
   const [selected, setSelected] = useState<string | null>(null);
   const [targetWards, setTargetWards] = useState<string[]>([]);
   const [profile, setProfile] = useState<WardProfile | null>(null);
+  const [wardQuery, setWardQuery] = useState('');
+  const [searchMessage, setSearchMessage] = useState('');
   const [error, setError] = useState('');
 
   function toggleTargetWard(ward: string) {
     const wasTargeted = targetWards.includes(ward);
     setSelected(wasTargeted ? null : ward);
     setTargetWards((current) => wasTargeted ? current.filter((item) => item !== ward) : [...current, ward].sort((first, second) => Number(first) - Number(second)));
+  }
+
+  function selectSearchedWard() {
+    const normalized = wardQuery.trim().toLowerCase().replace(/^ward\s*/, '');
+    if (!normalized || !wards) return;
+    const match = wards.features.find((feature) => {
+      const ward = String(feature.properties.ward ?? feature.properties.ward_id ?? '');
+      const name = String(feature.properties.name ?? feature.properties.ward_name ?? '').toLowerCase();
+      return ward === normalized || name.includes(normalized);
+    });
+    if (!match) {
+      setSearchMessage('No Chennai ward matched that search. Enter a ward number, for example 92.');
+      return;
+    }
+    const ward = String(match.properties.ward ?? match.properties.ward_id);
+    setSelected(ward);
+    setTargetWards((current) => current.includes(ward) ? current : [...current, ward].sort((first, second) => Number(first) - Number(second)));
+    setWardQuery('Ward ' + ward);
+    setSearchMessage('Ward ' + ward + ' is selected and added to the simulation target.');
   }
 
   useEffect(() => {
@@ -67,6 +88,12 @@ function WardMapPageContent() {
     <div className="ward-layout">
       <section className="card ward-map-card">
         <div className="ward-map-title"><div><div className="label">Official 2025 ward layer</div><h2 className="section-title">Select a ward to inspect its profile</h2></div>{wards && <span>{wards.features.length} wards</span>}</div>
+        <form className="ward-search" onSubmit={(event) => { event.preventDefault(); selectSearchedWard(); }}>
+          <label htmlFor="ward-search">Find a ward</label>
+          <div><input id="ward-search" className="input" list="ward-options" value={wardQuery} onChange={(event) => { setWardQuery(event.target.value); setSearchMessage(''); }} placeholder="Enter ward number, e.g. 92" /><button className="btn" type="submit" disabled={!wards || !wardQuery.trim()}>Find & select</button></div>
+          <datalist id="ward-options">{wards?.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); return <option key={ward} value={'Ward ' + ward} />; })}</datalist>
+          {searchMessage ? <span>{searchMessage}</span> : null}
+        </form>
         {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => toggleTargetWard(ward)}><title>{'Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
         <p className="helper">Boundary geometry and administrative attributes: Greater Chennai Corporation GIS FeatureServer. Click any ward.</p>
       </section>

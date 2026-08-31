@@ -77,3 +77,13 @@
 .signal-card{padding:13px;border:1px solid #20364d;border-radius:12px;background:#091523}.signal-card span,.signal-card b,.signal-card small{display:block}.signal-card span{font-size:11px;color:var(--muted)}.signal-card b{font-size:21px;margin:5px 0}.signal-card small{font-size:10px;color:#8ea2b9}.signal-card.favourable b{color:#74e6cc}.signal-card.adverse b{color:#f6b561}
 @media(max-width:700px){.workflow-steps,.signal-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:420px){.workflow-steps,.signal-grid{grid-template-columns:1fr}}
+
+
+/* Ward map search */
+.ward-search{display:grid;gap:7px;margin-top:18px;padding:13px;border:1px solid #20364d;border-radius:12px;background:#091523}
+.ward-search>label{font-size:12px;font-weight:800;color:#e8f0f8}
+.ward-search>div{display:flex;gap:8px}
+.ward-search .input{min-width:0}
+.ward-search .btn{white-space:nowrap;padding:10px 13px}
+.ward-search>span{font-size:12px;line-height:1.5;color:var(--accent)}
+@media(max-width:520px){.ward-search>div{flex-direction:column}.ward-search .btn{width:100%}}
