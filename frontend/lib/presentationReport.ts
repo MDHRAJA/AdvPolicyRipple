@@ -149,7 +149,7 @@ export function exportPresentationReport(input: ReportInput) {
     .two-column { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; } .budget-callout { background:#e5f7f0; border:1px solid #9bdac9; border-left:4px solid #1e8e75; border-radius:7px; padding:10px; margin:12px 0; } .budget-callout p { margin-top:7px; } .callout { border-left: 4px solid #37bda3; margin: 10px 0; } .lead { font-size: 13px; line-height: 1.55; } .muted { color: #607286; } .actions li { margin-bottom: 8px; } em { color: #52677d; }
     table { width:100%; border-collapse: collapse; margin-top: 9px; } th { background:#092039; color:#fff; font-size:10px; text-align:left; } td, th { border:1px solid #cddae4; padding:7px; } td:not(:first-child), th:not(:first-child) { text-align:right; } .chart { width:100%; height:auto; display:block; margin-top:8px; } .footer { margin-top:24px; padding-top:10px; border-top:1px solid #c8d6e4; color:#607286; font-size:9px; } .page-break { break-before: page; }
   </style></head><body>
-    <header class="hero"><div class="brand">POLICYFORGE</div><h1>Policy presentation report</h1><p>${isExploratory ? 'AI assumption-driven Chennai scenario - transparent hypothetical effects, not an observed forecast.' : 'Synthetic policy simulation - decision support, not a prediction of real people.'}</p>
+    <header class="hero"><div class="brand">POLICYFORGE</div><h1>Policy presentation report</h1><p>${isExploratory ? 'Census-informed synthetic Chennai scenario - Census-informed synthetic effects, not an observed forecast.' : 'Synthetic policy simulation - decision support, not a prediction of real people.'}</p>
       <div class="meta"><div><span>Experiment</span><b>${escapeHtml(policyTitle(config, result))}</b></div><div><span>Population</span><b>${config.population.size.toLocaleString()} synthetic agents</b></div><div><span>Generated</span><b>${new Date().toLocaleString()}</b></div></div>
     </header>
     ${adviceSection(aiPlanner)}
@@ -158,8 +158,8 @@ export function exportPresentationReport(input: ReportInput) {
     </section>
     <section><div class="eyebrow">DISTRIBUTIONAL EFFECTS</div><h2>Income-group impacts</h2><p class="muted">Changes are relative to each synthetic group’s starting point. Negative stress change is favourable.</p><table><thead><tr><th>Group</th><th>Access</th><th>Stress</th><th>Trust</th><th>Compliance</th></tr></thead><tbody>${incomeRows(result)}</tbody></table></section>
     <section><div class="eyebrow">SIMULATION TRAJECTORY</div><h2>How key outcomes evolved</h2>${trajectoryChart(result.timeline)}</section>
-    <section><div class="eyebrow">${isExploratory ? 'AI ASSUMPTIONS' : 'SIMULATION ASSUMPTIONS'}</div><h2>${isExploratory ? 'Scenario assumptions and boundaries' : 'Evidence and limitations'}</h2>
-      ${isExploratory && result.exploratory_scenario ? `<div class="callout"><strong>AI assumption-driven scenario</strong><br/>${escapeHtml(result.exploratory_scenario.summary)}</div>` : ''}
+    <section><div class="eyebrow">${isExploratory ? 'MODEL ASSUMPTIONS' : 'SIMULATION ASSUMPTIONS'}</div><h2>${isExploratory ? 'Scenario assumptions and boundaries' : 'Evidence and limitations'}</h2>
+      ${isExploratory && result.exploratory_scenario ? `<div class="callout"><strong>Census-informed synthetic scenario</strong><br/>${escapeHtml(result.exploratory_scenario.summary)}</div>` : ''}
       <ul>${assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}${assessment.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
       <p><strong>Evidence used:</strong> ${escapeHtml(assessment.evidence_used)}</p>
     </section>
