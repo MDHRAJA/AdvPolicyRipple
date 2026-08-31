@@ -102,9 +102,10 @@ function trajectoryChart(timeline: SimulationResult['timeline']) {
 }
 
 function incomeRows(result: SimulationResult) {
-  if (!result.income_group_impacts) return '<p class="muted">Income-group effects were not included in this session.</p>';
+  const impacts = result.income_group_impacts;
+  if (!impacts) return '<p class="muted">Income-group effects were not included in this session.</p>';
   return ['low', 'middle', 'high'].map((group) => {
-    const impact = result.income_group_impacts?.[group as 'low' | 'middle' | 'high'];
+    const impact = impacts[group as 'low' | 'middle' | 'high'];
     return `<tr><td>${group[0].toUpperCase() + group.slice(1)} income</td><td>${delta(impact.change.resource_access)}</td><td>${delta(impact.change.stress)}</td><td>${delta(impact.change.trust)}</td><td>${delta(impact.change.compliance)}</td></tr>`;
   }).join('');
 }
