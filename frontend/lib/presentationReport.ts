@@ -132,9 +132,9 @@ export function exportPresentationReport(input: ReportInput) {
   const exportWindow = window.open('', '_blank');
   if (!exportWindow) throw new Error('Your browser blocked the report window. Allow pop-ups and try again.');
 
-  const assumptions = isExploratory
+  const assumptions: string[] = isExploratory
     ? result.exploratory_scenario?.assumptions || []
-    : result.assumptions || [];
+    : Array.isArray(result.assumptions) ? result.assumptions.map(String) : [];
   const report = `<!doctype html>
   <html><head><meta charset="utf-8"/><title>PolicyForge presentation report</title>
   <style>
