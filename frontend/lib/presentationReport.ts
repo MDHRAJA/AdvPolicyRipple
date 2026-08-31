@@ -39,9 +39,10 @@ const metricNames: Record<keyof Metrics, string> = {
 };
 
 function escapeHtml(value: unknown) {
-  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+  const entities: Record<string, string> = {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
-  }[character] || character));
+  };
+  return String(value ?? '').replace(/[&<>"']/g, (character) => entities[character] || character);
 }
 
 function percent(value: number) { return (Number(value) * 100).toFixed(1) + '%'; }
