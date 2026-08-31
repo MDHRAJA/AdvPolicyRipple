@@ -81,7 +81,7 @@ function PlannerPageContent() {
       }
 
       // A request without a supported preset is still shown in the same Results
-      // page, but remains explicitly labelled as Gemini assumption-driven.
+      // page, but remains explicitly labelled as Census-informed synthetic.
       const scenario = await api.exploratoryScenario({ prompt: policyQuestion, objectives: selected });
       const adviceState = await advicePromise;
       saveAndOpen(scenario.config, scenario.result, { prompt: policyQuestion, objectives: selected, triage, ...adviceState });
@@ -104,7 +104,7 @@ function PlannerPageContent() {
         <p className="helper"><b>Interpreter: {interpreter?.display || 'Checking backend…'}</b>{interpreter ? ` · ${interpreter.fallback}` : ''}</p>
       </section>
       <section className="card p-6 planner-result-route" aria-live="polite">
-        {busy ? <div className="comparison-loader" role="status"><span className="comparison-loader-mark" aria-hidden="true" /><div><b>Preparing your complete policy result</b><span>PolicyForge is selecting the appropriate route, preparing the policy proposal, running the simulation, and opening Results automatically.</span></div></div> : <div className="planner-empty"><span>✦</span><h2>One request. One results page.</h2><p>Supported interventions are compared using the validated 10,000-agent simulator. Other policy ideas are shown as clearly labelled Gemini assumption-driven scenarios in the same results format.</p></div>}
+        {busy ? <div className="comparison-loader" role="status"><span className="comparison-loader-mark" aria-hidden="true" /><div><b>Preparing your complete policy result</b><span>PolicyForge is selecting the appropriate route, preparing the policy proposal, running the simulation, and opening Results automatically.</span></div></div> : <div className="planner-empty"><span>✦</span><h2>One request. One results page.</h2><p>Supported interventions are compared using the validated 10,000-agent simulator. Other policy ideas are shown as clearly labelled Census-informed synthetic scenarios in the same results format.</p></div>}
       </section>
     </div>
   </main>;

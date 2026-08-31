@@ -640,7 +640,7 @@ def exploratory_scenario(prompt, objectives):
 
     This does not claim that Census data estimates the policy effect. The
     resulting profile is applied only to a Census-anchored synthetic baseline
-    and is always labelled as an AI assumption-driven scenario.
+    and is always labelled as an Census-informed synthetic scenario.
     """
     if os.getenv('POLICYFORGE_AI_MODE', 'rule_based').lower() != 'gemini':
         raise GeminiUnavailableError('Exploratory AI scenarios require Gemini to be enabled on the backend.')
@@ -676,7 +676,7 @@ def exploratory_scenario(prompt, objectives):
     profile['summary'] = str(profile.get('summary') or 'AI-generated assumptions are applied to a Census-anchored synthetic Chennai baseline.')[:600]
     profile['assumptions'] = [str(item)[:300] for item in profile.get('assumptions', []) if str(item).strip()][:4]
     if not profile['assumptions']:
-        profile['assumptions'] = ['This is an AI assumption-driven scenario, not an observed-data estimate or forecast.']
+        profile['assumptions'] = ['This is an Census-informed synthetic scenario, not an observed-data estimate or forecast.']
     profile['evidence_type'] = 'AI ASSUMPTION-DRIVEN SCENARIO'
     profile['source'] = 'gemini'
     return profile
