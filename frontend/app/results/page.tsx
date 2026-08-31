@@ -83,7 +83,7 @@ function AIPlannerProposal({ session }: { session: AIPlannerSession }) {
 }
 
 function BudgetConstraint({ session, advice }: { session: AIPlannerSession; advice?: PolicyAdvice }) {
-  const statedConstraint = session.plan?.fiscal_consideration;
+  const statedConstraint = session.plan?.fiscal_consideration || session.triage.fiscal_consideration;
   return <section className="budget-constraint">
     <div className="label">Budget & delivery constraint</div>
     <h3>{statedConstraint ? 'Funding requirement recognised' : 'Funding position to confirm'}</h3>
