@@ -77,7 +77,21 @@ function AIPlannerProposal({ session }: { session: AIPlannerSession }) {
     <h2 className="section-title">{plan?.recommendation?.recommended.name || advice?.title || session.triage.title}</h2>
     <p className="helper"><b>Your policy question:</b> {session.prompt}</p>
     {plan ? <div className="policy-note"><b>Interpreted policy · {plan.matched_policy.name}</b><span>{plan.interpretation}</span>{plan.recommendation ? <span className="income-impact"><strong>Selected after comparison:</strong> {plan.recommendation.explanation}</span> : null}</div> : <div className="policy-note"><b>Simulation route</b><span>{session.triage.explanation} This results page therefore uses transparent Gemini assumptions rather than relabelling the request as a preset policy.</span></div>}
+    <BudgetConstraint session={session} advice={advice} />
     {advice ? <AIAdviceSummary advice={advice} /> : session.adviceError ? <p className="helper">The separate AI narrative could not be loaded: {session.adviceError}</p> : null}
+  </section>;
+}
+
+function BudgetConstraint({ session, advice }: { session: AIPlannerSession; advice?: PolicyAdvice }) {
+  const statedConstraint = session.plan?.fiscal_consideration;
+  return <section className="budget-constraint">
+    <div className="label">Budget & delivery constraint</div>
+    <h3>{statedConstraint ? 'Funding requirement recognised' : 'Funding position to confirm'}</h3>
+    <div className="budget-grid">
+      <div><b>{statedConstraint ? 'Stated budget constraint' : 'No explicit budget constraint supplied'}</b><p>{statedConstraint || 'No budget cap, funding limit, fiscal-neutrality rule, or allocation source was entered in the policy question.'}</p></div>
+      <div><b>AI funding approach</b><p>{advice?.budget_strategy || 'The AI funding approach will appear here once Gemini returns the detailed policy proposal.'}</p></div>
+    </div>
+    <p className="helper">Budget constraints shape the AI policy design and implementation route. They change numeric outputs only where a selected PolicyForge mechanism explicitly models that budget effect.</p>
   </section>;
 }
 
@@ -86,7 +100,7 @@ function AIAdviceSummary({ advice }: { advice: PolicyAdvice }) {
     <div className="policy-note"><b>AI recommendation</b><span>{advice.executive_recommendation}</span></div>
     <div className="advice-two-col">
       <div className="advice-section"><b>Policy design</b><p>{advice.policy_design}</p></div>
-      <div className="advice-section"><b>Targeting and funding</b><p>{advice.targeting}</p><p>{advice.budget_strategy}</p></div>
+      <div className="advice-section"><b>Targeting</b><p>{advice.targeting}</p></div>
     </div>
     <div className="advice-section"><b>Recommended actions</b>{advice.recommendations.map((item) => <div key={item.action} className="income-impact"><strong>{item.action}</strong> — {item.detail}<em>Why: {item.rationale} Safeguard: {item.safeguard}</em></div>)}</div>
     <div className="advice-two-col">

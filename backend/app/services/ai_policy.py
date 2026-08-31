@@ -105,12 +105,16 @@ def _support_direction(text):
 
 
 def _fiscal_consideration(text):
-    if not any(term in text for term in ('budget', 'fund', 'funds', 'money', 'cost', 'afford')):
+    terms = ('budget', 'fund', 'funds', 'money', 'cost', 'afford', 'fiscal', 'spend', 'spending', 'revenue')
+    sentences = [sentence.strip() for sentence in re.split(r'(?<=[.!?])\s+', text.strip()) if sentence.strip()]
+    relevant = [sentence for sentence in sentences if any(term in sentence.lower() for term in terms)]
+    if not relevant:
         return None
+    stated_constraint = relevant[0][:360]
     return (
-        'Budget preservation is recognised as a constraint. PolicyForge will not silently invent a reduction to another subsidy: '
-        'the request does not identify the programme, current allocation, protected groups, or amount that can be reallocated. '
-        'Specify that trade-off explicitly before treating it as a simulation input.'
+        f'Stated budget constraint: {stated_constraint} '
+        'PolicyForge will use this as a policy-design constraint. It will not silently invent a funding cut, price, or reallocation, '
+        'and it will not treat a monetary amount as a synthetic simulation parameter unless the selected policy mechanism explicitly models it.'
     )
 
 
@@ -207,7 +211,7 @@ def interpret_rules(prompt, objectives, size=10000, rounds=20, seed=42):
     direction = 'reduce' if parameter_name == 'cost_change' and any(word in text for word in ('reduce', 'lower', 'affordable')) else 'increase'
     inferred_objectives = objectives or [name for name, words in OBJECTIVES.items() if any(word in text for word in words)]
     summary = water_context['summary'] if selected == 'water_service_restoration' and water_context else energy_context['summary'] if selected == 'energy_service_restoration' and energy_context else f'PolicyForge interpreted this as {policy["name"]} with {parameter_name.replace("_", " ")} set to {round(value * 100)}%, based on: {", ".join(matched_signals) or "the overall problem description"}.'
-    plan = _build_plan(selected, value * 100, direction, inferred_objectives, prompt, 'rule_based', summary, _fiscal_consideration(text))
+    plan = _build_plan(selected, value * 100, direction, inferred_objectives, prompt, 'rule_based', summary, _fiscal_consideration(prompt))
     plan['proposed_config']['rounds'] = rounds
     plan['proposed_config']['seed'] = seed
     return plan
@@ -538,6 +542,7 @@ def _gemini_advice(prompt, objectives):
         'You are a senior Chennai municipal-policy agent writing a presentation-grade policy recommendation for a request outside or only partly covered by the simulation catalog. '
         'Be decisive: propose one named policy and explain exactly how it should work. Avoid generic advice such as “assess the issue”, “consider vulnerable groups”, or “collect data” unless it directly enables a named delivery decision. '
         'Return an executive_recommendation of 2–3 sentences; a policy_design that describes the instrument, eligibility, operational mechanism and governance; targeting; a realistic budget_strategy; a three-phase implementation_plan; 3–5 success_measures; 2–4 key_tradeoffs; and 2–4 decisions_required from the sponsor. '
+                'If the policy question states a budget cap, funding limit, fiscal-neutrality requirement, no-new-spending rule, revenue constraint, or specified programme to reduce, carry that exact constraint into budget_strategy, recommended actions, implementation sequence, and trade-offs. Do not invent a funding cut, price, cost, or allocation. State clearly when the constraint guides the proposal but is not a numeric PolicyForge simulation input. '
         'Give exactly three substantive recommendations. Each must name the instrument, target, implementation choice, rationale, safeguard, and a concrete implementation detail such as a threshold, sequence, operating rule, or decision point. Where the request lacks a number, location, legal authority, or budget, state one clearly labelled proposed/conditional design choice instead of inventing facts. '
         'Set follow_up_questions to an empty array unless a missing fact would materially change the proposed instrument, target, funding route, or governance. When needed, ask at most three concise, request-specific questions; never ask generic questions such as “what outcome”, “which area”, or “what budget”. The policy recommendation must remain useful without an answer. '
         'Do not claim to have consulted data, laws, budgets, agencies, or communities that were not provided. Keep this as an AI proposal, distinct from simulation outputs, and never relabel an outside policy as a catalog intervention. '
