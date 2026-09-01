@@ -184,11 +184,6 @@ const API = configuredApi !== undefined
   ? configuredApi.replace(/\/$/, '')
   : isLocalBrowser ? LOCAL_API_BASE : '';
 
-export const ACCESS_TOKEN_KEY = 'policyforge:access-token';
-
-function accessToken() {
-  return typeof window === 'undefined' ? null : window.sessionStorage.getItem(ACCESS_TOKEN_KEY);
-}
 
 function formatErrorDetail(detail: unknown): string[] {
   if (Array.isArray(detail)) {
@@ -241,12 +236,10 @@ async function parseErrorResponse(response: Response): Promise<string> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = accessToken();
   const response = await fetch(`${API}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers || {}),
     },
   });
@@ -257,9 +250,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  accessStatus: () => request<{ enabled: boolean }>('/api/access/status'),
-  unlockAccess: (password: string) => request<{ enabled: boolean; token: string | null }>('/api/access/unlock', { method: 'POST', body: JSON.stringify({ password }) }),
-  verifyAccess: () => request<{ valid: boolean }>('/api/access/verify', { method: 'POST' }),
   policies: () => request<Policy[]>('/api/policies'),
   aiStatus: () => request<AIInterpreterStatus>('/api/ai/status'),
   triagePolicy: (prompt: string) => request<PolicyTriage>('/api/ai/triage', { method: 'POST', body: JSON.stringify({ prompt }) }),
