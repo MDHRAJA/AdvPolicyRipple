@@ -39,7 +39,7 @@ def test_fiscal_consideration_is_absent_without_money_language():
 def test_triage_carries_budget_constraint_for_outside_catalog_route(monkeypatch):
     monkeypatch.setenv('POLICYFORGE_AI_MODE', 'rule_based')
 
-    result = ai_policy.triage_policy('Create a Vandalur solid-waste infrastructure programme under 2 crores.')
+    result = ai_policy.triage_policy('Create a Vandalur solid waste infrastructure programme under 2 crores.')
 
     assert result['mode'] == 'outside_catalog'
     assert result['fiscal_consideration'] is not None
