@@ -47,4 +47,4 @@ def test_stateless_simulation_route_returns_a_complete_result():
     result = response.json()
     assert len(result['timeline']) == 2
     assert set(result['income_group_impacts']) == {'low', 'middle', 'high'}
-    assert result['ward_impacts']
+    assert result['evidence_labels']['baseline'] == 'SIMULATION RESULTS'
