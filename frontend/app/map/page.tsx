@@ -25,15 +25,20 @@ function impactColor(change: number) { return change > .05 ? '#52d3b4' : change 
 
 function formatImpact(value: number) { return (value >= 0 ? '+' : '') + (value * 100).toFixed(1) + ' pp'; }
 
+function namedProperty(feature: { properties: Record<string, unknown> }, acceptedNames: string[]) {
+  const match = Object.entries(feature.properties).find(([key, value]) => {
+    const normalizedKey = key.toLowerCase().replace(/[^a-z]/g, '');
+    return acceptedNames.includes(normalizedKey) && typeof value === 'string' && value.trim();
+  });
+  return match ? String(match[1]).trim() : '';
+}
+
 function wardName(feature: { properties: Record<string, unknown> }) {
-  const properties = feature.properties;
-  const name = properties.ward_name ?? properties.name ?? properties.WARD_NAME ?? properties.WARDNAME ?? properties.locality ?? properties.area_name ?? '';
-  return String(name).trim();
+  return namedProperty(feature, ['wardname', 'name', 'locality', 'areaname']);
 }
 
 function wardZoneName(feature: { properties: Record<string, unknown> }) {
-  const properties = feature.properties;
-  return String(properties.Zone_Name ?? properties.zone_name ?? properties.zone ?? properties.region ?? '').trim();
+  return namedProperty(feature, ['zonename', 'zone', 'regionname', 'region', 'divisionname', 'division']);
 }
 
 function wardSearchName(feature: { properties: Record<string, unknown> }) {
