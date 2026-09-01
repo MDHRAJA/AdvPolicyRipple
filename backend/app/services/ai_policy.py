@@ -107,7 +107,7 @@ def _support_direction(text):
 def _fiscal_consideration(text):
     terms = ('budget', 'fund', 'funds', 'money', 'cost', 'afford', 'fiscal', 'spend', 'spending', 'revenue', 'allocation', 'cap')
     currency_amount = re.compile(
-        r'(?:₹|rs\.?\s*)\s*\d[\d,]*(?:\.\d+)?|'
+        r'(?:₹|rs\.?|inr)\s*\d[\d,]*(?:\.\d+)?|'
         r'\b\d[\d,]*(?:\.\d+)?\s*(?:inr|rupees?|lakh(?:s)?|lac(?:s)?|crore(?:s)?|million|thousand)\b',
         re.IGNORECASE,
     )
