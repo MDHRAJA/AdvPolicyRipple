@@ -39,7 +39,7 @@ def test_fiscal_consideration_is_absent_without_money_language():
 def test_triage_carries_budget_constraint_for_outside_catalog_route(monkeypatch):
     monkeypatch.setenv('POLICYFORGE_AI_MODE', 'rule_based')
 
-    result = ai_policy.triage_policy('Vandalur infrastructure development under 2 crores.')
+    result = ai_policy.triage_policy('Create a Vandalur solid-waste infrastructure programme under 2 crores.')
 
     assert result['mode'] == 'outside_catalog'
     assert result['fiscal_consideration'] is not None
@@ -56,4 +56,4 @@ def test_water_availability_restoration_is_not_misread_as_a_water_cut(monkeypatc
 
     assert plan['proposed_config']['policy_id'] == 'water_service_restoration'
     assert plan['proposed_config']['policy_parameters']['restoration'] == 0.15
-    assert 'not a new water cut' in plan['interpretation'].lower()
+    assert 'becomes a 0.0% target cut' in plan['interpretation'].lower()
