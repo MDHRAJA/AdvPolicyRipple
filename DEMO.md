@@ -1,5 +1,7 @@
 # 3-minute demo
 
+**Live app:** [https://policy-forge-nu.vercel.app/](https://policy-forge-nu.vercel.app/)
+
 **Pitch:** “Before deploying a policy on millions of people, what if we could test it on a digital society first?”
 
 1. Open the landing page.
