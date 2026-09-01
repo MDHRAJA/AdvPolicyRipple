@@ -82,20 +82,46 @@ function AIPlannerProposal({ session }: { session: AIPlannerSession }) {
   </section>;
 }
 
-function promptBudgetConstraint(prompt: string) {
-  const terms = /\b(budget|fund(?:s|ing)?|money|cost|afford(?:able)?|fiscal|spend(?:ing)?|revenue|allocation|cap)\b/i;
-  const amount = /(?:₹|rs\.?\s*)\s*\d[\d,]*(?:\.\d+)?|\b\d[\d,]*(?:\.\d+)?\s*(?:inr|rupees?|lakh(?:s)?|lac(?:s)?|crore(?:s)?|million|thousand)\b/i;
-  const sentence = prompt.split(/(?<=[.!?])\s+/).find((item) => terms.test(item) || amount.test(item));
-  return sentence ? `Stated budget constraint: ${sentence.trim().slice(0, 360)} PolicyForge will use this as a policy-design constraint; it is not automatically a numerical simulation parameter.` : null;
+type BudgetDetails = { mentioned: boolean; statement: string | null; amount: string | null };
+
+function budgetDetailsFromPrompt(prompt: string): BudgetDetails {
+  const moneyTerms = /\b(budget|fund(?:s|ing)?|money|cost|afford(?:able)?|fiscal|spend(?:ing)?|revenue|allocation|cap|expensive|price)\b/i;
+  const amountPattern = /(?:₹|rs\.?)\s*([\d,]+(?:\.\d+)?)\s*(crores?|lakhs?|lacs?|inr|rupees?|million|thousand)?|\b([\d,]+(?:\.\d+)?)\s*(crores?|lakhs?|lacs?|inr|rupees?|million|thousand)\b/i;
+  const matchedAmount = amountPattern.exec(prompt);
+  const mentioned = moneyTerms.test(prompt) || Boolean(matchedAmount);
+  const sentence = prompt.split(/(?<=[.!?])\s+/).find((item) => moneyTerms.test(item) || amountPattern.test(item))?.trim() || null;
+  if (!matchedAmount) return { mentioned, statement: sentence, amount: null };
+
+  const rawValue = matchedAmount[1] || matchedAmount[3];
+  const unit = (matchedAmount[2] || matchedAmount[4] || '').toLowerCase();
+  const numericValue = Number(rawValue.replace(/,/g, ''));
+  const multiplier = unit.startsWith('crore') ? 10_000_000
+    : unit.startsWith('lakh') || unit.startsWith('lac') ? 100_000
+    : unit === 'million' ? 1_000_000
+    : unit === 'thousand' ? 1_000
+    : 1;
+  const rupees = numericValue * multiplier;
+  const amount = Number.isFinite(rupees) && rupees > 0 ? `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(rupees)}` : null;
+  return { mentioned, statement: sentence, amount };
 }
 
 function BudgetConstraint({ session, advice }: { session: AIPlannerSession; advice?: PolicyAdvice }) {
-  const statedConstraint = session.plan?.fiscal_consideration || session.triage.fiscal_consideration || promptBudgetConstraint(session.prompt);
+  const details = budgetDetailsFromPrompt(session.prompt);
+  const statedConstraint = session.plan?.fiscal_consideration || session.triage.fiscal_consideration || (details.statement ? `Stated budget constraint: ${details.statement}` : null);
+  const hasConstraint = Boolean(statedConstraint || details.mentioned);
+  const constraintCopy = statedConstraint
+    ? statedConstraint
+    : 'The policy question flags a cost or funding consideration, but does not specify a monetary amount, cap, or allocation source.';
   return <section className="budget-constraint">
     <div className="label">Budget & delivery constraint</div>
-    <h3>{statedConstraint ? 'Funding requirement recognised' : 'Funding position to confirm'}</h3>
+    <h3>{hasConstraint ? 'Funding requirement recognised' : 'Funding position to confirm'}</h3>
     <div className="budget-grid">
-      <div><b>{statedConstraint ? 'Stated budget constraint' : 'No explicit budget constraint supplied'}</b><p>{statedConstraint || 'No budget cap, funding limit, fiscal-neutrality rule, or allocation source was entered in the policy question.'}</p></div>
+      <div>
+        <b>{details.amount ? 'Stated budget amount' : hasConstraint ? 'Cost or funding consideration stated' : 'No explicit budget constraint supplied'}</b>
+        {details.amount ? <strong className="budget-amount">{details.amount}</strong> : null}
+        <p>{hasConstraint ? constraintCopy : 'No budget cap, funding limit, fiscal-neutrality rule, cost concern, or allocation source was entered in the policy question.'}</p>
+        {hasConstraint && !details.amount ? <small>Enter an amount such as ₹25 lakh, 2 crores, or ₹2,50,000 to set a stated monetary ceiling.</small> : null}
+      </div>
       <div><b>AI funding approach</b><p>{advice?.budget_strategy || 'The AI funding approach will appear here once Gemini returns the detailed policy proposal.'}</p></div>
     </div>
     <p className="helper">Budget constraints shape the AI policy design and implementation route. They change numeric outputs only where a selected PolicyForge mechanism explicitly models that budget effect.</p>
