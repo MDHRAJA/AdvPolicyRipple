@@ -2,6 +2,8 @@
 
 > **Test policies before they reach people.**
 
+**Live demo:** [policy-forge-nu.vercel.app](https://policy-forge-nu.vercel.app/)
+
 PolicyForge is a Chennai-focused policy decision-support application. It turns a plain-language policy question into either a validated synthetic simulation or a clearly labelled exploratory scenario, then presents the proposed design, trade-offs, ranges, and distributional effects in one results view.
 
 It is designed for discussion, comparison, and presentation—not for autonomous policymaking, an observed forecast of real people, legal advice, engineering design, or budget approval.
