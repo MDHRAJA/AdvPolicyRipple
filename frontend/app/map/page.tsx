@@ -25,26 +25,6 @@ function impactColor(change: number) { return change > .05 ? '#52d3b4' : change 
 
 function formatImpact(value: number) { return (value >= 0 ? '+' : '') + (value * 100).toFixed(1) + ' pp'; }
 
-function namedProperty(feature: { properties: Record<string, unknown> }, acceptedNames: string[]) {
-  const match = Object.entries(feature.properties).find(([key, value]) => {
-    const normalizedKey = key.toLowerCase().replace(/[^a-z]/g, '');
-    return acceptedNames.includes(normalizedKey) && typeof value === 'string' && value.trim();
-  });
-  return match ? String(match[1]).trim() : '';
-}
-
-function wardName(feature: { properties: Record<string, unknown> }) {
-  return namedProperty(feature, ['wardname', 'name', 'locality', 'areaname']);
-}
-
-function wardZoneName(feature: { properties: Record<string, unknown> }) {
-  return namedProperty(feature, ['zonename', 'zone', 'regionname', 'region', 'divisionname', 'division']);
-}
-
-function wardSearchName(feature: { properties: Record<string, unknown> }) {
-  return wardName(feature) || wardZoneName(feature);
-}
-
 function WardMapPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -64,21 +44,18 @@ function WardMapPageContent() {
   }
 
   function selectSearchedWard() {
-    const normalized = wardQuery.trim().toLowerCase();
+    const normalized = wardQuery.trim().replace(/^ward\s*/i, '');
     if (!normalized || !wards) return;
-    const namedMatches = wards.features.filter((feature) => wardName(feature).toLowerCase().includes(normalized));
-    const zoneMatches = namedMatches.length ? namedMatches : wards.features.filter((feature) => wardZoneName(feature).toLowerCase().includes(normalized));
-    if (!zoneMatches.length) {
-      setSearchMessage('No Chennai ward or zone name matched that search. Try a locality or zone name.');
+    const match = wards.features.find((feature) => String(feature.properties.ward ?? feature.properties.ward_id ?? '') === normalized);
+    if (!match) {
+      setSearchMessage('No Chennai ward matched that number. Enter a ward number from 1 to 200.');
       return;
     }
-    const wardIds = zoneMatches.map((feature) => String(feature.properties.ward ?? feature.properties.ward_id));
-    const firstWard = wardIds[0];
-    const name = wardName(zoneMatches[0]) || wardZoneName(zoneMatches[0]) || 'Ward ' + firstWard;
-    setSelected(firstWard);
-    setTargetWards((current) => Array.from(new Set([...current, ...wardIds])).sort((first, second) => Number(first) - Number(second)));
-    setWardQuery(name);
-    setSearchMessage(wardIds.length === 1 ? name + ' (Ward ' + firstWard + ') is selected and added to the simulation target.' : name + ' matched ' + wardIds.length + ' wards; all are now selected for the simulation target.');
+    const ward = String(match.properties.ward ?? match.properties.ward_id);
+    setSelected(ward);
+    setTargetWards((current) => current.includes(ward) ? current : [...current, ward].sort((first, second) => Number(first) - Number(second)));
+    setWardQuery('Ward ' + ward);
+    setSearchMessage('Ward ' + ward + ' is selected and added to the simulation target.');
   }
 
   useEffect(() => {
@@ -100,7 +77,7 @@ function WardMapPageContent() {
   }, [wards]);
 
   return <main className="page-shell">
-    <div className="page-heading"><div><div className="label">Observed geography</div><h1>Chennai ward explorer.</h1><p>Browse official Greater Chennai Corporation ward boundaries and administrative profiles. This first release deliberately does not turn city-wide context or synthetic simulation measures into ward-level observations.</p></div></div>
+    <div className="page-heading"><div><div className="label">Observed geography</div><h1>Chennai Ward Explorer.</h1><p>Browse official Greater Chennai Corporation ward boundaries and administrative profiles. This first release deliberately does not turn city-wide context or synthetic simulation measures into ward-level observations.</p></div></div>
     <div className="evidence-legend"><span className="tag observed">OBSERVED DATA · GCC GIS</span><span className="tag synthetic">SYNTHETIC WARD ALLOCATION</span><span className="tag simulation">{simulation?.ward_impacts ? 'SIMULATION OUTPUT · ACCESS CHANGE' : 'NO WARD SIMULATION SELECTED'}</span></div>
     <section className="card map-target-bar"><div><div className="label">Simulation target</div><b>{targetWards.length ? 'Wards ' + targetWards.join(', ') : 'All Chennai wards'}</b><p>{targetWards.length ? 'Click more wards to add or remove them from this target.' : 'No specific wards selected: policy will apply citywide.'}</p></div><div className="map-target-actions"><button className="btn" onClick={() => setTargetWards([])}>Select all Chennai</button><button className="btn primary" onClick={() => router.push('/simulate?wards=' + targetWards.join(',') + (targetWards.length ? '' : '&allChennai=1'))}>Use in Simulator →</button><button className="btn" onClick={() => router.push('/planner?wards=' + targetWards.join(',') + (targetWards.length ? '' : '&allChennai=1'))}>Ask AI →</button></div></section>
     {error && <div className="error-box">{error}</div>}
@@ -108,12 +85,12 @@ function WardMapPageContent() {
       <section className="card ward-map-card">
         <div className="ward-map-title"><div><div className="label">Official 2025 ward layer</div><h2 className="section-title">Select a ward to inspect its profile</h2></div>{wards && <span>{wards.features.length} wards</span>}</div>
         <form className="ward-search" onSubmit={(event) => { event.preventDefault(); selectSearchedWard(); }}>
-          <label htmlFor="ward-search">Find a ward or zone by name</label>
-          <div><input id="ward-search" className="input" list="ward-options" value={wardQuery} onChange={(event) => { setWardQuery(event.target.value); setSearchMessage(''); }} placeholder="Search by ward, locality, or zone name" /><button className="btn" type="submit" disabled={!wards || !wardQuery.trim()}>Find & select</button></div>
-          <datalist id="ward-options">{Array.from(new Set((wards?.features || []).map((feature) => wardSearchName(feature)).filter(Boolean))).sort().map((name) => <option key={name} value={name} />)}</datalist>
+          <label htmlFor="ward-search">Find a ward by number</label>
+          <div><input id="ward-search" className="input" list="ward-options" value={wardQuery} onChange={(event) => { setWardQuery(event.target.value); setSearchMessage(''); }} placeholder="Enter a ward number, e.g. 92" /><button className="btn" type="submit" disabled={!wards || !wardQuery.trim()}>Find & select</button></div>
+          <datalist id="ward-options">{wards?.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); return <option key={ward} value={'Ward ' + ward} />; })}</datalist>
           {searchMessage ? <span>{searchMessage}</span> : null}
         </form>
-        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => toggleTargetWard(ward)}><title>{(wardSearchName(feature) || 'Ward ' + ward) + ' · Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
+        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => toggleTargetWard(ward)}><title>{'Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
         <p className="helper">Boundary geometry and administrative attributes: Greater Chennai Corporation GIS FeatureServer. Click any ward.</p>
       </section>
       <aside className="card ward-profile">
