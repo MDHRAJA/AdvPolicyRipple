@@ -31,6 +31,15 @@ function wardName(feature: { properties: Record<string, unknown> }) {
   return String(name).trim();
 }
 
+function wardZoneName(feature: { properties: Record<string, unknown> }) {
+  const properties = feature.properties;
+  return String(properties.Zone_Name ?? properties.zone_name ?? properties.zone ?? properties.region ?? '').trim();
+}
+
+function wardSearchName(feature: { properties: Record<string, unknown> }) {
+  return wardName(feature) || wardZoneName(feature);
+}
+
 function WardMapPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -52,17 +61,19 @@ function WardMapPageContent() {
   function selectSearchedWard() {
     const normalized = wardQuery.trim().toLowerCase();
     if (!normalized || !wards) return;
-    const match = wards.features.find((feature) => wardName(feature).toLowerCase().includes(normalized));
-    if (!match) {
-      setSearchMessage('No Chennai ward name matched that search. Try a locality or ward name.');
+    const namedMatches = wards.features.filter((feature) => wardName(feature).toLowerCase().includes(normalized));
+    const zoneMatches = namedMatches.length ? namedMatches : wards.features.filter((feature) => wardZoneName(feature).toLowerCase().includes(normalized));
+    if (!zoneMatches.length) {
+      setSearchMessage('No Chennai ward or zone name matched that search. Try a locality or zone name.');
       return;
     }
-    const ward = String(match.properties.ward ?? match.properties.ward_id);
-    const name = wardName(match) || 'Ward ' + ward;
-    setSelected(ward);
-    setTargetWards((current) => current.includes(ward) ? current : [...current, ward].sort((first, second) => Number(first) - Number(second)));
+    const wardIds = zoneMatches.map((feature) => String(feature.properties.ward ?? feature.properties.ward_id));
+    const firstWard = wardIds[0];
+    const name = wardName(zoneMatches[0]) || wardZoneName(zoneMatches[0]) || 'Ward ' + firstWard;
+    setSelected(firstWard);
+    setTargetWards((current) => Array.from(new Set([...current, ...wardIds])).sort((first, second) => Number(first) - Number(second)));
     setWardQuery(name);
-    setSearchMessage(name + ' (Ward ' + ward + ') is selected and added to the simulation target.');
+    setSearchMessage(wardIds.length === 1 ? name + ' (Ward ' + firstWard + ') is selected and added to the simulation target.' : name + ' matched ' + wardIds.length + ' wards; all are now selected for the simulation target.');
   }
 
   useEffect(() => {
@@ -92,12 +103,12 @@ function WardMapPageContent() {
       <section className="card ward-map-card">
         <div className="ward-map-title"><div><div className="label">Official 2025 ward layer</div><h2 className="section-title">Select a ward to inspect its profile</h2></div>{wards && <span>{wards.features.length} wards</span>}</div>
         <form className="ward-search" onSubmit={(event) => { event.preventDefault(); selectSearchedWard(); }}>
-          <label htmlFor="ward-search">Find a ward by name</label>
-          <div><input id="ward-search" className="input" list="ward-options" value={wardQuery} onChange={(event) => { setWardQuery(event.target.value); setSearchMessage(''); }} placeholder="Search by ward name or locality" /><button className="btn" type="submit" disabled={!wards || !wardQuery.trim()}>Find & select</button></div>
-          <datalist id="ward-options">{wards?.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const name = wardName(feature); return name ? <option key={ward} value={name} label={'Ward ' + ward} /> : null; })}</datalist>
+          <label htmlFor="ward-search">Find a ward or zone by name</label>
+          <div><input id="ward-search" className="input" list="ward-options" value={wardQuery} onChange={(event) => { setWardQuery(event.target.value); setSearchMessage(''); }} placeholder="Search by ward, locality, or zone name" /><button className="btn" type="submit" disabled={!wards || !wardQuery.trim()}>Find & select</button></div>
+          <datalist id="ward-options">{Array.from(new Set((wards?.features || []).map((feature) => wardSearchName(feature)).filter(Boolean))).sort().map((name) => <option key={name} value={name} />)}</datalist>
           {searchMessage ? <span>{searchMessage}</span> : null}
         </form>
-        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => toggleTargetWard(ward)}><title>{(wardName(feature) || 'Ward ' + ward) + ' · Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
+        {!wards ? <div className="loading-card">Loading official GCC boundaries…</div> : <svg className="ward-map" viewBox="0 0 1000 650" role="img" aria-label="Interactive Greater Chennai Corporation ward map">{wards.features.map((feature) => { const ward = String(feature.properties.ward ?? feature.properties.ward_id); const zone = Number(feature.properties.zone ?? 0); const impact = simulation?.ward_impacts?.[ward]; const color = impact ? impactColor(impact.change.resource_access) : ['#215f72', '#2e766f', '#805c35', '#614a88', '#784a5b'][zone % 5]; const d = rings(feature as Feature).map((ring) => ring.map((point, index) => { const [x, y] = projection(point); return (index ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); }).join(' ') + ' Z').join(' '); return <path key={ward} d={d} fill={color} className={selected === ward ? 'ward-shape selected' : targetWards.includes(ward) ? 'ward-shape targeted' : 'ward-shape'} onClick={() => toggleTargetWard(ward)}><title>{(wardSearchName(feature) || 'Ward ' + ward) + ' · Ward ' + ward + ' · Zone ' + String(feature.properties.zone ?? '—')}</title></path>; })}</svg>}
         <p className="helper">Boundary geometry and administrative attributes: Greater Chennai Corporation GIS FeatureServer. Click any ward.</p>
       </section>
       <aside className="card ward-profile">
