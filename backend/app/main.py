@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.models import AccessUnlockRequest, SimulationCreate, SimulationConfig, PopulationConfig, CompareRequest, CalibrationRequest, PolicyPlanRequest
+from app.core.models import SimulationCreate, SimulationConfig, PopulationConfig, CompareRequest, CalibrationRequest, PolicyPlanRequest
 from app.db.store import init_db, create, get, save
 from app.services.observed_data import chennai_calibration_anchor, chennai_metrics, chennai_sources, chennai_summary
 from app.services.wards import chennai_ward_boundaries, ward_profile
@@ -49,80 +49,6 @@ if not SESSION_ONLY:
     init_db()
 
 
-
-
-ACCESS_PASSWORD_ENV = "POLICYFORGE_ACCESS_PASSWORD"
-ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 12
-ACCESS_EXEMPT_PATHS = {"/health", "/api/access/status", "/api/access/unlock", "/api/access/verify"}
-
-
-def _access_password():
-    return os.getenv(ACCESS_PASSWORD_ENV, "")
-
-
-def _access_enabled():
-    return bool(_access_password())
-
-
-def _token_signature(expires_at: int):
-    secret = _access_password().encode("utf-8")
-    message = f"policyforge-access-v1:{expires_at}".encode("utf-8")
-    return hmac.new(secret, message, hashlib.sha256).hexdigest()
-
-
-def _issue_access_token():
-    expires_at = int(time.time()) + ACCESS_TOKEN_TTL_SECONDS
-    raw = f"{expires_at}.{_token_signature(expires_at)}".encode("utf-8")
-    return base64.urlsafe_b64encode(raw).decode("ascii")
-
-
-def _valid_access_token(token: str | None):
-    if not _access_enabled():
-        return True
-    if not token:
-        return False
-    try:
-        decoded = base64.urlsafe_b64decode(token.encode("ascii")).decode("utf-8")
-        expires_raw, signature = decoded.split(".", 1)
-        expires_at = int(expires_raw)
-    except (ValueError, UnicodeDecodeError):
-        return False
-    return expires_at >= int(time.time()) and hmac.compare_digest(signature, _token_signature(expires_at))
-
-
-@app.middleware("http")
-async def access_gate(request: Request, call_next):
-    if request.method == "OPTIONS" or not _access_enabled() or request.url.path in ACCESS_EXEMPT_PATHS:
-        return await call_next(request)
-    authorization = request.headers.get("authorization", "")
-    token = authorization.removeprefix("Bearer ").strip() if authorization.startswith("Bearer ") else ""
-    if not _valid_access_token(token):
-        return JSONResponse(status_code=401, content={"detail": "Password required."})
-    return await call_next(request)
-
-
-@app.get("/api/access/status")
-def access_status():
-    return {"enabled": _access_enabled()}
-
-
-@app.post("/api/access/unlock")
-def access_unlock(request: AccessUnlockRequest):
-    configured_password = _access_password()
-    if not configured_password:
-        return {"enabled": False, "token": None}
-    if not hmac.compare_digest(request.password, configured_password):
-        raise HTTPException(401, "Incorrect password.")
-    return {"enabled": True, "token": _issue_access_token()}
-
-
-@app.post("/api/access/verify")
-def access_verify(request: Request):
-    authorization = request.headers.get("authorization", "")
-    token = authorization.removeprefix("Bearer ").strip() if authorization.startswith("Bearer ") else ""
-    if not _valid_access_token(token):
-        raise HTTPException(401, "Password required.")
-    return {"valid": True}
 
 
 @app.get("/health")
