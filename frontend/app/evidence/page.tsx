@@ -79,7 +79,7 @@ export default function EvidencePage() {
 
   return (
     <main className="page-shell">
-      <div className="page-heading"><div><div className="label">Observed data</div><h1>Chennai evidence layer.</h1><p>Official aggregate context for calibration and scenario design. It is not an agent-level behavioural dataset.</p></div></div>
+      <div className="page-heading"><div><div className="label">Observed data</div><h1>Chennai Evidence Layer.</h1><p>Official aggregate context for calibration and scenario design. It is not an agent-level behavioural dataset.</p></div></div>
       <EvidenceLegend />
       <div className="policy-note"><b>Evidence boundary</b><span>Population and city-service records below are observed. Agent-level income, resource access, trust, stress, compliance and policy response remain synthetic unless a separate source is added.</span></div>
       {error && <div className="error-box mt-6">{error}</div>}
