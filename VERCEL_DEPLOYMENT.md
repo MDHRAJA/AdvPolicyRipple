@@ -1,37 +1,32 @@
-# Private Vercel deployment
+# Vercel deployment
 
-PolicyForge deploys as **one private Vercel Services project** with a single shareable URL:
+**Live deployment:** [https://policy-forge-nu.vercel.app/](https://policy-forge-nu.vercel.app/)
+
+PolicyForge deploys as one public Vercel project. The Next.js interface and FastAPI API share this domain, so browser requests use `/api/*` without cross-origin configuration.
 
 | Service | Repository root | Public route |
 | --- | --- | --- |
 | Next.js interface | `frontend` | `/` |
 | FastAPI simulation API | `backend` | `/api/*` |
 
-The root `vercel.json` declares this layout. Vercel Services builds both applications together and applies password protection once to the shared deployment.
+The root `vercel.json` declares this layout.
 
-## 1. Import and configure PolicyForge
+## Configure a deployment
 
 1. In Vercel, choose **Add New → Project** and import `MDHRAJA/AdvPolicyRipple`.
-2. Keep **Root Directory** as `./`; Vercel reads the root `vercel.json` to identify both services.
-3. In **Environment Variables**, add:
-   - `POLICYFORGE_SESSION_ONLY`: `true`.
-   - `POLICYFORGE_AI_MODE`: `gemini`.
-   - `GEMINI_API_KEY`: the Gemini key, entered only in Vercel.
-   - `GEMINI_MODEL`: `gemini-3.7-flash`.
-4. Apply every variable to Production, Preview, and Development.
-5. Deploy. The API health check will be at `/health`.
+2. Keep **Root Directory** as `./`; Vercel reads the root `vercel.json`.
+3. Add these environment variables to Production, Preview, and Development:
+   - `POLICYFORGE_SESSION_ONLY=true`
+   - `POLICYFORGE_AI_MODE=gemini`
+   - `GEMINI_API_KEY` — set this only in Vercel; never commit it.
+   - `GEMINI_MODEL=gemini-3.6-flash`
+   - `GEMINI_FALLBACK_MODEL_1=gemini-3.5-flash`
+   - `GEMINI_FALLBACK_MODEL_2=gemini-3.5-flash-lite`
+   - `GEMINI_FALLBACK_MODEL_3=gemini-3.1-flash-lite`
+4. Deploy. The health endpoint is available at `/health`.
 
-The browser automatically calls `/api/*` on the same password-protected PolicyForge domain. Do not set `NEXT_PUBLIC_API_URL` in Vercel.
-
-## 2. Protect teammate access
-
-1. Open **Settings → Deployment Protection**.
-2. Enable **Password Protection**.
-3. Apply it to **All Deployments**, including Production.
-4. Set one strong shared password and give it only to intended teammates.
-
-Teammates can open the single deployment URL on any computer, enter the password, and use PolicyForge. Password protection availability depends on the selected Vercel plan.
+Do not set `NEXT_PUBLIC_API_URL` for Vercel: the app uses its shared deployment domain automatically. The deployment is intentionally public and has no application password gate.
 
 ## Local development
 
-For the same no-save behavior locally, set `POLICYFORGE_SESSION_ONLY=true`. Leave `NEXT_PUBLIC_API_URL` unset to use `http://localhost:8000` automatically.
+For session-only local development, set `POLICYFORGE_SESSION_ONLY=true`. Leave `NEXT_PUBLIC_API_URL` unset to use `http://localhost:8001` automatically.
