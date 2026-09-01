@@ -97,3 +97,6 @@
 .budget-grid p{margin:7px 0 0;color:#c4d3df;font-size:13px;line-height:1.6}
 .budget-constraint>.helper{margin:14px 0 0}
 @media(max-width:700px){.budget-grid{grid-template-columns:1fr}}
+
+.budget-amount{display:block;margin:8px 0 3px;color:#fff;font-size:27px;line-height:1.1;letter-spacing:-.025em}
+.budget-grid small{display:block;margin-top:10px;color:#9bb0c4;font-size:11px;line-height:1.5}
