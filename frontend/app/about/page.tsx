@@ -10,6 +10,12 @@ const principles = [
 
 const developers = ['Mahadevan Rajagopalan', 'Asvath M', 'Sanjit S', 'Krish Muralidharan', 'Sai retheka'];
 
+const learningStages = [
+  ['1. Establish context', 'Use the Chennai evidence layer to inspect the aggregate data available for calibration and scenario design.'],
+  ['2. State assumptions', 'Choose the synthetic population preset, policy parameters, simulation horizon and random seed.'],
+  ['3. Compare outcomes', 'Read model outputs alongside uncertainty ranges and rerun with different seeds or scenarios.'],
+] as const;
+
 export default function About() {
   return (
     <main className="page-shell">
@@ -28,6 +34,13 @@ export default function About() {
             <p className="helper ethics-copy">{body}</p>
           </section>
         ))}
+        <section className="card p-7">
+          <div className="label">Learning & calibration</div>
+          <h2 className="section-title ethics-title">Make the model auditable.</h2>
+          <p className="helper ethics-copy">PolicyForge separates what is observed from what is generated and what the simulation produces.</p>
+          <div className="workflow-steps">{learningStages.map(([title, body]) => <div key={title}><b>{title.slice(0, 1)}</b><strong>{title.slice(3)}</strong><span>{body}</span></div>)}</div>
+          <div className="experiment-readiness"><b>Important limitation</b><span>Calibration anchors the context; it is not a real-world forecast. Behaviour and policy effects remain explicit synthetic-model assumptions.</span></div>
+        </section>
         <section className="card p-7 team-card">
           <div className="label">Project team</div>
           <h2 className="section-title ethics-title">Developed by</h2>
