@@ -3,33 +3,13 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_access_gate_keeps_health_public_and_protects_api(monkeypatch):
-    monkeypatch.setenv('POLICYFORGE_ACCESS_PASSWORD', 'test-password')
+def test_health_and_policy_catalog_are_public():
     client = TestClient(app)
 
     assert client.get('/health').status_code == 200
-    assert client.get('/api/policies').status_code == 401
-
-
-def test_access_unlock_allows_a_session_token_to_use_protected_routes(monkeypatch):
-    monkeypatch.setenv('POLICYFORGE_ACCESS_PASSWORD', 'test-password')
-    client = TestClient(app)
-
-    unlocked = client.post('/api/access/unlock', json={'password': 'test-password'})
-    assert unlocked.status_code == 200
-    token = unlocked.json()['token']
-
-    protected = client.get('/api/policies', headers={'Authorization': 'Bearer ' + token})
-    assert protected.status_code == 200
-    assert protected.json()
-
-
-def test_access_unlock_rejects_an_incorrect_password(monkeypatch):
-    monkeypatch.setenv('POLICYFORGE_ACCESS_PASSWORD', 'test-password')
-    client = TestClient(app)
-
-    assert client.post('/api/access/unlock', json={'password': 'incorrect'}).status_code == 401
-
+    policies = client.get('/api/policies')
+    assert policies.status_code == 200
+    assert policies.json()
 
 def test_stateless_simulation_route_returns_a_complete_result():
     client = TestClient(app)

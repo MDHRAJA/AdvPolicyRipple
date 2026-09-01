@@ -154,9 +154,7 @@ Set these backend-service environment variables for the environments you deploy:
 | `GEMINI_FALLBACK_MODEL_1` | `gemini-3.5-flash` |
 | `GEMINI_FALLBACK_MODEL_2` | `gemini-3.5-flash-lite` |
 | `GEMINI_FALLBACK_MODEL_3` | `gemini-3.1-flash-lite` |
-| `POLICYFORGE_ACCESS_PASSWORD` | Optional strong shared password |
-
-`POLICYFORGE_ACCESS_PASSWORD` enables the app’s own reversible access screen. Remove that variable and redeploy to disable it. Vercel deployments are stateless; no Neon or other database is required for the normal session-only mode.
+ Vercel deployments are stateless; no Neon or other database is required for the normal session-only mode.
 
 ## API overview
 
